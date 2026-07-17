@@ -135,6 +135,41 @@ class YandexMusicService {
     return { title: 'Мне нравится', tracks }
   }
 
+  // ===== LIKES / DISLIKES =====
+
+  async getLikedIds() {
+    if (!this.uid) await this.initSession()
+    if (!this.uid) throw new Error('UID не удалось получить')
+    const data = await this._apiGet(`/users/${this.uid}/likes/tracks`)
+    return (data.result?.library?.tracks || []).map(r => String(r.id))
+  }
+
+  async likeTrack(trackId) {
+    if (!this.uid) await this.initSession()
+    return this._apiPost(`/users/${this.uid}/likes/tracks/add-multiple`, { 'track-ids': String(trackId) })
+  }
+
+  async unlikeTrack(trackId) {
+    if (!this.uid) await this.initSession()
+    return this._apiPost(`/users/${this.uid}/likes/tracks/remove`, { 'track-ids': String(trackId) })
+  }
+
+  async dislikeTrack(trackId) {
+    if (!this.uid) await this.initSession()
+    return this._apiPost(`/users/${this.uid}/dislikes/tracks/add-multiple`, { 'track-ids': String(trackId) })
+  }
+
+  // Wave (rotor) settings: moodEnergy: fun|active|calm|sad|all,
+  // diversity: favorite|popular|discover|default, language: russian|not-russian|any
+  async setWaveSettings({ moodEnergy = 'all', diversity = 'default', language = 'any' } = {}) {
+    const form = { moodEnergy, diversity, language, type: 'rotor' }
+    try {
+      return await this._apiPost('/rotor/station/user:onyourwave/settings3', form)
+    } catch (_) {
+      return await this._apiPost('/rotor/station/user:onyourwave/settings2', form)
+    }
+  }
+
   // "Моя волна" — personal radio; pull a few batches from the rotor.
   // Pass more=true to continue the stream from where the last call stopped.
   async getWaveTracks(more = false) {

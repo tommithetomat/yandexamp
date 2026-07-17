@@ -44,7 +44,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "artifactName": "YandexAmp-Setup-${version}.${ext}"
+      "artifactName": "YandexAmp-${version}-Windows-Setup.${ext}"
     },
     "mac": {
       "target": [
@@ -56,7 +56,7 @@
       "icon": "build/icon.png",
       "category": "public.app-category.music",
       "identity": null,
-      "artifactName": "YandexAmp-${version}-${arch}.${ext}"
+      "artifactName": "YandexAmp-${version}-macOS-${arch}.${ext}"
     }
   }
 }

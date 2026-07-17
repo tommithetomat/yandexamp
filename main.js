@@ -245,6 +245,51 @@ ipcMain.handle('yandex:getLikedTracks', async () => {
   }
 })
 
+ipcMain.handle('yandex:getLikedIds', async () => {
+  try {
+    const data = await yandex.getLikedIds()
+    return { success: true, data }
+  } catch (err) {
+    return { success: false, error: err.message || String(err) }
+  }
+})
+
+ipcMain.handle('yandex:likeTrack', async (_, { trackId }) => {
+  try {
+    await yandex.likeTrack(trackId)
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message || String(err) }
+  }
+})
+
+ipcMain.handle('yandex:unlikeTrack', async (_, { trackId }) => {
+  try {
+    await yandex.unlikeTrack(trackId)
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message || String(err) }
+  }
+})
+
+ipcMain.handle('yandex:dislikeTrack', async (_, { trackId }) => {
+  try {
+    await yandex.dislikeTrack(trackId)
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message || String(err) }
+  }
+})
+
+ipcMain.handle('yandex:setWaveSettings', async (_, settings) => {
+  try {
+    await yandex.setWaveSettings(settings)
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message || String(err) }
+  }
+})
+
 ipcMain.handle('yandex:getWaveTracks', async (_, args) => {
   try {
     const data = await yandex.getWaveTracks(Boolean(args?.more))

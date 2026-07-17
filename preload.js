@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld('api', {
     getSmartPlaylists: () => ipcRenderer.invoke('yandex:getSmartPlaylists'),
     getLikedTracks: () => ipcRenderer.invoke('yandex:getLikedTracks'),
     getWaveTracks: (more = false) => ipcRenderer.invoke('yandex:getWaveTracks', { more }),
+    getLikedIds: () => ipcRenderer.invoke('yandex:getLikedIds'),
+    likeTrack: (trackId) => ipcRenderer.invoke('yandex:likeTrack', { trackId }),
+    unlikeTrack: (trackId) => ipcRenderer.invoke('yandex:unlikeTrack', { trackId }),
+    dislikeTrack: (trackId) => ipcRenderer.invoke('yandex:dislikeTrack', { trackId }),
+    setWaveSettings: (settings) => ipcRenderer.invoke('yandex:setWaveSettings', settings),
     getPlaylistTracks: (uid, kind) => ipcRenderer.invoke('yandex:getPlaylistTracks', { uid, kind }),
   },
 })

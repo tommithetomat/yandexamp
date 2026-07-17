@@ -310,6 +310,29 @@ details .login-section { padding: 0 8px 8px; }
   box-shadow: 0 0 4px var(--lcd-dim);
 }
 
+#like-btns {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+.like-btn {
+  width: 26px;
+  height: 20px;
+  font-size: 11px;
+  line-height: 1;
+  background: transparent;
+  color: var(--lcd-dim);
+  border: 1px solid var(--lcd-dim);
+  cursor: pointer;
+  padding: 0;
+}
+.like-btn:hover { color: var(--lcd-green); border-color: var(--lcd-green); }
+#btn-like.liked {
+  color: #ff3355;
+  border-color: #ff3355;
+  text-shadow: 0 0 6px #ff3355;
+}
+
 #display-right {
   flex: 1;
   display: flex;
@@ -811,6 +834,29 @@ details .login-section { padding: 0 8px 8px; }
   color: var(--accent);
   background: var(--bg-dark);
   border-bottom: 1px solid #1a1a1a;
+}
+#wave-settings {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid #1a1a1a;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+.wave-select {
+  flex: 1;
+  background: var(--bg-dark);
+  color: var(--text);
+  border: 1px solid #3a3a3a;
+  font-size: 10px;
+  padding: 2px 3px;
+  outline: none;
+}
+.pl-liked-mark {
+  color: #ff3355;
+  font-size: 9px;
+  margin-right: 3px;
 }
 
 /* ===== THEMES ===== */

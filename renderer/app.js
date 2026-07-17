@@ -21,6 +21,7 @@ const state = {
   vizMode: 'bars',      // 'bars' | 'scope' | 'star'
   userPlaylists: [],
   waveMode: false,      // "Моя волна" active — auto-extend playlist near the end
+  likedIds: new Set(),  // liked track ids for the ♥ indicator
   // Canvas colors — updated by applyTheme()
   lcdBg: '#0b1a0b', lcdGreen: '#33ff66', lcdDim: '#0d3318', lcdMid: '#1aaa44',
 }
@@ -172,6 +173,16 @@ function enterPlayer() {
     updateWindowHeight()
   })
   setupAudio()
+  loadLikedIds()
+}
+
+async function loadLikedIds() {
+  const res = await window.api.yandex.getLikedIds()
+  if (res.success) {
+    state.likedIds = new Set(res.data)
+    updateLikeUI()
+    renderPlaylist()
+  }
 }
 
 // ===== PLAYER UI =====
@@ -208,6 +219,34 @@ function bindPlayerUI() {
     state.vizMode = modes[(modes.indexOf(state.vizMode) + 1) % modes.length]
     const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', star: '✦ STARFIELD' }
     flashMeta(labels[state.vizMode])
+  })
+
+  // Like / dislike
+  $('btn-like').addEventListener('click', async () => {
+    const t = state.playlist[state.currentIndex]
+    if (!t) return
+    if (state.likedIds.has(t.id)) {
+      const res = await window.api.yandex.unlikeTrack(t.id)
+      if (res.success) { state.likedIds.delete(t.id); flashMeta('♡ лайк снят') }
+      else flashMeta('⚠ ' + (res.error || 'ошибка'))
+    } else {
+      const res = await window.api.yandex.likeTrack(t.id)
+      if (res.success) { state.likedIds.add(t.id); flashMeta('♥ в «Мне нравится»') }
+      else flashMeta('⚠ ' + (res.error || 'ошибка'))
+    }
+    updateLikeUI()
+    renderPlaylist()
+  })
+
+  $('btn-dislike').addEventListener('click', async () => {
+    const t = state.playlist[state.currentIndex]
+    if (!t) return
+    const res = await window.api.yandex.dislikeTrack(t.id)
+    if (!res.success) { flashMeta('⚠ ' + (res.error || 'ошибка')); return }
+    state.likedIds.delete(t.id)
+    flashMeta('✖ больше не покажем')
+    updateLikeUI()
+    playNext() // как в Яндекс Музыке: дизлайк = пропустить
   })
 
   $('btn-shuffle').addEventListener('click', () => {
@@ -342,6 +381,14 @@ function bindPlaylistUI() {
 }
 
 // ===== MY PLAYLISTS =====
+function getWaveSettings() {
+  try {
+    return { moodEnergy: 'all', diversity: 'default', language: 'any', ...JSON.parse(localStorage.getItem('yamp-wave') || '{}') }
+  } catch (_) {
+    return { moodEnergy: 'all', diversity: 'default', language: 'any' }
+  }
+}
+
 async function loadUserPlaylists() {
   $('mypl-list').innerHTML = '<div class="mypl-msg">Загружаем плейлисты...</div>'
 
@@ -366,8 +413,32 @@ async function loadUserPlaylists() {
       <button class="mypl-load-btn" ${attrs}>▶ ЗАГРУЗИТЬ</button>
     </div>`
 
+  const ws = getWaveSettings()
+  const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`
+
   let html = '<div class="mypl-header">ЯНДЕКС ДЛЯ ВАС</div>'
   html += item('⚡ Моя волна', '∞', 'data-type="wave"')
+  html += `
+    <div id="wave-settings">
+      <select class="wave-select" id="wave-mood" title="Характер">
+        ${opt('all', 'Любой характер', ws.moodEnergy)}
+        ${opt('active', 'Бодрое', ws.moodEnergy)}
+        ${opt('fun', 'Весёлое', ws.moodEnergy)}
+        ${opt('calm', 'Спокойное', ws.moodEnergy)}
+        ${opt('sad', 'Грустное', ws.moodEnergy)}
+      </select>
+      <select class="wave-select" id="wave-div" title="Что играть">
+        ${opt('default', 'Всё подряд', ws.diversity)}
+        ${opt('favorite', 'Любимое', ws.diversity)}
+        ${opt('discover', 'Незнакомое', ws.diversity)}
+        ${opt('popular', 'Популярное', ws.diversity)}
+      </select>
+      <select class="wave-select" id="wave-lang" title="Язык">
+        ${opt('any', 'Любой язык', ws.language)}
+        ${opt('russian', 'Русский', ws.language)}
+        ${opt('not-russian', 'Иностранный', ws.language)}
+      </select>
+    </div>`
   html += item('❤ Мне нравится', 'лайки', 'data-type="liked"')
   html += smart.map(pl =>
     item(pl.title, pl.trackCount ? pl.trackCount + ' тр.' : '', `data-type="pl" data-uid="${esc(pl.uid)}" data-kind="${pl.kind}"`)
@@ -388,7 +459,17 @@ async function loadUserPlaylists() {
       btn.disabled = true
       const isWave = btn.dataset.type === 'wave'
       let res2
-      if (isWave)                            res2 = await window.api.yandex.getWaveTracks()
+      if (isWave) {
+        // Apply mood/diversity/language settings before starting the wave
+        const settings = {
+          moodEnergy: $('wave-mood').value,
+          diversity:  $('wave-div').value,
+          language:   $('wave-lang').value,
+        }
+        localStorage.setItem('yamp-wave', JSON.stringify(settings))
+        await window.api.yandex.setWaveSettings(settings)
+        res2 = await window.api.yandex.getWaveTracks()
+      }
       else if (btn.dataset.type === 'liked') res2 = await window.api.yandex.getLikedTracks()
       else res2 = await window.api.yandex.getPlaylistTracks(btn.dataset.uid, Number(btn.dataset.kind))
       btn.textContent = '▶ ЗАГРУЗИТЬ'
@@ -589,6 +670,7 @@ async function playTrackByIndex(index) {
   $('track-bitrate').textContent = '...'
 
   highlightPlaylistItem(index)
+  updateLikeUI()
 
   const res = await window.api.yandex.getTrackUrl(track.id)
   if (seq !== _playSeq) return // another track was requested meanwhile
@@ -725,7 +807,7 @@ function renderPlaylist() {
   container.innerHTML = state.playlist.map((t, i) => `
     <div class="pl-track ${i === state.currentIndex ? 'active' : ''}" data-index="${i}">
       <span class="pl-num">${i + 1}.</span>
-      <span class="pl-title">${esc(t.title)}</span>
+      <span class="pl-title">${state.likedIds.has(t.id) ? '<span class="pl-liked-mark">♥</span>' : ''}${esc(t.title)}</span>
       <span class="pl-artist">${esc(t.artist)}</span>
       <span class="pl-dur">${formatDuration(t.duration)}</span>
     </div>`).join('')
@@ -755,6 +837,11 @@ function updatePlCount() {
 }
 
 // ===== DISPLAY HELPERS =====
+function updateLikeUI() {
+  const t = state.playlist[state.currentIndex]
+  $('btn-like').classList.toggle('liked', Boolean(t && state.likedIds.has(t.id)))
+}
+
 function setTrackTitle(text) {
   $('track-title-text').textContent = text
 }
