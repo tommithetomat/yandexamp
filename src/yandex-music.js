@@ -172,6 +172,9 @@ class YandexMusicService {
 
   // "Моя волна" — personal radio; pull a few batches from the rotor.
   // Pass more=true to continue the stream from where the last call stopped.
+  // Without station feedback the rotor keeps serving the same head of the
+  // queue, so we also report radioStarted here and track events via
+  // sendWaveFeedback() — that is what makes the stream personalised/endless.
   async getWaveTracks(more = false) {
     const tracks = []
     let queue = more ? (this._waveQueue || '') : ''
@@ -179,18 +182,32 @@ class YandexMusicService {
       const q = queue ? `&queue=${queue}` : ''
       const data = await this._apiGet(`/rotor/station/user:onyourwave/tracks?settings2=true${q}`)
       const seq = data.result?.sequence || []
+      if (data.result?.batchId) this._waveBatchId = data.result.batchId
       if (!seq.length) break
       for (const s of seq) {
         if (s.track) tracks.push(this._mapTrack(s.track))
       }
       queue = seq[seq.length - 1]?.track?.id || ''
       if (!queue) break
+      if (i === 0 && !more) {
+        // Fresh wave start — tell the rotor the station is playing
+        await this.sendWaveFeedback('radioStarted').catch(() => {})
+      }
     }
     this._waveQueue = queue
     // Rotor batches can repeat tracks — dedupe by id
     const seen = new Set()
     const unique = tracks.filter(t => !seen.has(t.id) && seen.add(t.id))
     return { title: 'Моя волна', tracks: unique }
+  }
+
+  // Rotor feedback: type = radioStarted | trackStarted | trackFinished | skip
+  async sendWaveFeedback(type, trackId = null, playedSeconds = null) {
+    const body = { type, timestamp: new Date().toISOString(), from: 'desktop_win-radio-user-onyourwave' }
+    if (trackId) body.trackId = String(trackId)
+    if (playedSeconds != null) body.totalPlayedSeconds = Math.round(playedSeconds)
+    const batch = this._waveBatchId ? `?batch-id=${encodeURIComponent(this._waveBatchId)}` : ''
+    return this._apiPostJson(`/rotor/station/user:onyourwave/feedback${batch}`, body)
   }
 
   setToken(token, uid = null) {
@@ -336,6 +353,37 @@ class YandexMusicService {
       })
       req.on('error', reject)
       req.setTimeout(15000, () => { req.destroy(); reject(new Error('API timeout')) })
+      req.write(bodyStr)
+      req.end()
+    })
+  }
+
+  _apiPostJson(apiPath, obj) {
+    return new Promise((resolve, reject) => {
+      if (!this.token) { reject(new Error('Not authenticated')); return }
+      const bodyStr = JSON.stringify(obj)
+      const opts = {
+        hostname: 'api.music.yandex.net',
+        path:     apiPath,
+        method:   'POST',
+        headers: {
+          Authorization:           `OAuth ${this.token}`,
+          'X-Yandex-Music-Client': 'WindowsPhone/3.17',
+          'User-Agent':            'YandexAmp/1.0',
+          'Content-Type':          'application/json',
+          'Content-Length':        Buffer.byteLength(bodyStr),
+        },
+      }
+      const req = https.request(opts, res => {
+        let data = ''
+        res.on('data', c => (data += c))
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) resolve(data)
+          else reject(new Error('Feedback HTTP ' + res.statusCode))
+        })
+      })
+      req.on('error', reject)
+      req.setTimeout(10000, () => { req.destroy(); reject(new Error('API timeout')) })
       req.write(bodyStr)
       req.end()
     })

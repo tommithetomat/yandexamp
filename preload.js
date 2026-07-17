@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('api', {
     unlikeTrack: (trackId) => ipcRenderer.invoke('yandex:unlikeTrack', { trackId }),
     dislikeTrack: (trackId) => ipcRenderer.invoke('yandex:dislikeTrack', { trackId }),
     setWaveSettings: (settings) => ipcRenderer.invoke('yandex:setWaveSettings', settings),
+    waveFeedback: (type, trackId, playedSeconds) => ipcRenderer.invoke('yandex:waveFeedback', { type, trackId, playedSeconds }),
     getPlaylistTracks: (uid, kind) => ipcRenderer.invoke('yandex:getPlaylistTracks', { uid, kind }),
   },
 })

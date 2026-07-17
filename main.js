@@ -281,6 +281,15 @@ ipcMain.handle('yandex:dislikeTrack', async (_, { trackId }) => {
   }
 })
 
+ipcMain.handle('yandex:waveFeedback', async (_, { type, trackId, playedSeconds }) => {
+  try {
+    await yandex.sendWaveFeedback(type, trackId, playedSeconds)
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message || String(err) }
+  }
+})
+
 ipcMain.handle('yandex:setWaveSettings', async (_, settings) => {
   try {
     await yandex.setWaveSettings(settings)

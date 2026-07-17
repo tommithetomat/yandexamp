@@ -194,7 +194,7 @@ function bindPlayerUI() {
   $('btn-pause').addEventListener('click', playPause)
   $('btn-stop').addEventListener('click', stopTrack)
   $('btn-prev').addEventListener('click', playPrev)
-  $('btn-next').addEventListener('click', playNext)
+  $('btn-next').addEventListener('click', userSkip)
   $('btn-search').addEventListener('click', openSearch)
 
   // Skin cycling
@@ -215,9 +215,9 @@ function bindPlayerUI() {
 
   // Visualizer mode cycle on canvas click
   $('spectrum').addEventListener('click', () => {
-    const modes = ['bars', 'scope', 'star']
+    const modes = ['bars', 'scope', 'star', 'fire', 'ring']
     state.vizMode = modes[(modes.indexOf(state.vizMode) + 1) % modes.length]
-    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', star: '✦ STARFIELD' }
+    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', star: '✦ STARFIELD', fire: '♨ FIRE', ring: '◎ PULSE' }
     flashMeta(labels[state.vizMode])
   })
 
@@ -246,7 +246,7 @@ function bindPlayerUI() {
     state.likedIds.delete(t.id)
     flashMeta('✖ больше не покажем')
     updateLikeUI()
-    playNext() // как в Яндекс Музыке: дизлайк = пропустить
+    userSkip() // как в Яндекс Музыке: дизлайк = пропустить
   })
 
   $('btn-shuffle').addEventListener('click', () => {
@@ -289,6 +289,8 @@ function bindPlayerUI() {
       audio.currentTime = 0
       audio.play()
     } else {
+      const t = state.playlist[state.currentIndex]
+      if (state.waveMode && t) window.api.yandex.waveFeedback('trackFinished', t.id, audio.duration || 0)
       playNext()
     }
   })
@@ -691,6 +693,7 @@ async function playTrackByIndex(index) {
     setPlayStatus('▶')
     $('track-bitrate').textContent = '320'
     startScrollingTitle()
+    if (state.waveMode) window.api.yandex.waveFeedback('trackStarted', track.id)
     maybeExtendWave(index)
   } catch (err) {
     if (seq !== _playSeq || err.name === 'AbortError') return
@@ -755,6 +758,13 @@ function stopTrack() {
   updateSeekbarUI(0)
   $('time-m').textContent = '00'
   $('time-s').textContent = '00'
+}
+
+// Manual skip: tell the rotor so the wave adapts, then advance
+function userSkip() {
+  const t = state.playlist[state.currentIndex]
+  if (state.waveMode && t) window.api.yandex.waveFeedback('skip', t.id, audio.currentTime || 0)
+  playNext()
 }
 
 function playNext() {
@@ -916,10 +926,19 @@ function startSpectrumAnimation() {
     sz: Math.random() < 0.2 ? 2 : 1,
   }))
 
+  // Fire buffer — classic demoscene flame seeded by the spectrum
+  const FW = 84, FH = 14
+  const heat = new Float32Array(FW * (FH + 2))
+  const cellW = W / FW, cellH = H / FH
+
+  let ringRot = 0
+
   function draw() {
     state.animFrameId = requestAnimationFrame(draw)
     if (state.vizMode === 'scope') drawScope()
     else if (state.vizMode === 'star') drawStars()
+    else if (state.vizMode === 'fire') drawFire()
+    else if (state.vizMode === 'ring') drawRing()
     else drawBars()
   }
 
@@ -982,6 +1001,81 @@ function startSpectrumAnimation() {
       if (s.x < 0) { s.x = W + 1; s.y = Math.floor(Math.random() * H) }
       ctx.fillRect(Math.floor(s.x), s.y, s.sz, s.sz)
     }
+  }
+
+  function drawFire() {
+    state.analyser.getByteFrequencyData(freqData)
+    // Seed the two bottom rows from the lower half of the spectrum
+    for (let x = 0; x < FW; x++) {
+      const bi = Math.floor(x * (bufLen / 2) / FW)
+      const v = freqData[bi] / 255
+      const seed = v * (0.7 + Math.random() * 0.8)
+      heat[FH * FW + x] = seed
+      heat[(FH + 1) * FW + x] = seed
+    }
+    // One propagation step upwards per frame (rows read values from the
+    // previous frame because we iterate top-down through memory)
+    for (let y = 0; y < FH; y++) {
+      for (let x = 0; x < FW; x++) {
+        const below = (y + 1) * FW
+        const l = heat[below + Math.max(0, x - 1)]
+        const c = heat[below + x]
+        const r = heat[below + Math.min(FW - 1, x + 1)]
+        const b2 = heat[(y + 2) * FW + x]
+        heat[y * FW + x] = (l + c + r + b2) / 4.1
+      }
+    }
+    ctx.fillStyle = state.lcdBg
+    ctx.fillRect(0, 0, W, H)
+    for (let y = 0; y < FH; y++) {
+      for (let x = 0; x < FW; x++) {
+        const t = Math.min(1, heat[y * FW + x] * 1.6)
+        if (t < 0.04) continue
+        const rr = Math.min(255, Math.floor(t * 3 * 255))
+        const gg = Math.max(0, Math.min(255, Math.floor((t * 3 - 1) * 255)))
+        const bb = Math.max(0, Math.min(255, Math.floor((t * 3 - 2) * 255)))
+        ctx.fillStyle = `rgb(${rr},${gg},${bb})`
+        ctx.fillRect(x * cellW, y * cellH, cellW + 1, cellH + 1)
+      }
+    }
+  }
+
+  function drawRing() {
+    state.analyser.getByteFrequencyData(freqData)
+    const bass = freqData.slice(0, 6).reduce((a, b) => a + b, 0) / 6 / 255
+    ringRot += 0.008 + bass * 0.05
+    ctx.fillStyle = state.lcdBg
+    ctx.fillRect(0, 0, W, H)
+    const cx = W / 2, cy = H / 2
+    const N = 72
+    const rx = W * 0.16 + bass * W * 0.04
+    const ry = H * 0.22 + bass * H * 0.10
+    ctx.lineWidth = 2
+    for (let i = 0; i < N; i++) {
+      const bi = Math.floor(i * (bufLen * 0.7) / N)
+      const v = freqData[bi] / 255
+      const ang = ringRot + (i / N) * Math.PI * 2
+      const cos = Math.cos(ang), sin = Math.sin(ang)
+      const x1 = cx + cos * rx, y1 = cy + sin * ry
+      const len = v * v * 1.15
+      const x2 = cx + cos * (rx + len * W * 0.32)
+      const y2 = cy + sin * (ry + len * H * 0.55)
+      ctx.strokeStyle = v > 0.75 ? '#ff4444' : v > 0.5 ? '#ffdd00' : state.lcdGreen
+      ctx.globalAlpha = 0.35 + v * 0.65
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(x2, y2)
+      ctx.stroke()
+    }
+    ctx.globalAlpha = 1
+    // Pulsing core
+    ctx.fillStyle = state.lcdGreen
+    ctx.shadowColor = state.lcdGreen
+    ctx.shadowBlur = 8 + bass * 14
+    ctx.beginPath()
+    ctx.ellipse(cx, cy, 2 + bass * 5, 1.5 + bass * 3.5, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.shadowBlur = 0
   }
 
   draw()
