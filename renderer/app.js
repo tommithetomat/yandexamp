@@ -215,9 +215,9 @@ function bindPlayerUI() {
 
   // Visualizer mode cycle on canvas click
   $('spectrum').addEventListener('click', () => {
-    const modes = ['bars', 'scope', 'led', 'mirror']
+    const modes = ['bars', 'scope', 'led', 'fall', 'rain']
     state.vizMode = modes[(modes.indexOf(state.vizMode) + 1) % modes.length]
-    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', mirror: '▲▼ MIRROR' }
+    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', fall: '≋ WATERFALL', rain: 'ｱ MATRIX RAIN' }
     flashMeta(labels[state.vizMode])
   })
 
@@ -480,10 +480,12 @@ async function loadUserPlaylists() {
       if (!res2.success) { flashMeta('⚠ ' + (res2.error || 'Ошибка загрузки')); return }
       if (!res2.data.tracks.length) { flashMeta('⚠ Плейлист пуст'); return }
       state.waveMode = isWave
-      const startIdx = state.playlist.length
+      // Replace the current playlist with the loaded one
+      state.playlist = []
+      state.currentIndex = -1
       res2.data.tracks.forEach(t => addTrackToPlaylist(t))
       flashMeta(`✓ ${res2.data.title}`)
-      if (startIdx < state.playlist.length) playTrackByIndex(startIdx)
+      if (state.playlist.length) playTrackByIndex(0)
       state.isMyPlVisible = false
       $('mypl-win').classList.add('hidden')
       $('btn-my').classList.remove('active')
@@ -923,11 +925,20 @@ function startSpectrumAnimation() {
   const LED_COLS = 28, LED_ROWS = 10
   const ledPeaks = new Array(LED_COLS).fill(0)
 
+  // Matrix rain drops: one per glyph column
+  const RAIN_CW = 10
+  const rainDrops = Array.from({ length: Math.ceil(W / RAIN_CW) }, () => ({
+    y: Math.random() * H,
+    trail: 4 + Math.floor(Math.random() * 6),
+  }))
+  const RAIN_GLYPHS = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ0123456789'
+
   function draw() {
     state.animFrameId = requestAnimationFrame(draw)
     if (state.vizMode === 'scope') drawScope()
     else if (state.vizMode === 'led') drawLed()
-    else if (state.vizMode === 'mirror') drawMirror()
+    else if (state.vizMode === 'fall') drawWaterfall()
+    else if (state.vizMode === 'rain') drawRain()
     else drawBars()
   }
 
@@ -1016,42 +1027,44 @@ function startSpectrumAnimation() {
     }
   }
 
-  // Center-mirrored spectrum with a dimmed reflection
-  function drawMirror() {
+  // Scrolling spectrogram: time runs left, frequency bottom-up
+  function drawWaterfall() {
     state.analyser.getByteFrequencyData(freqData)
+    ctx.drawImage(canvas, -2, 0)
+    ctx.fillStyle = state.lcdBg
+    ctx.fillRect(W - 2, 0, 2, H)
+    for (let y = 0; y < H; y++) {
+      const bi = Math.floor((1 - y / H) * bufLen * 0.7)
+      const v = freqData[bi] / 255
+      if (v < 0.06) continue
+      ctx.fillStyle = v > 0.75 ? '#ff4444' : v > 0.5 ? '#ffdd00' : state.lcdGreen
+      ctx.globalAlpha = Math.min(1, 0.15 + v * v * 1.3)
+      ctx.fillRect(W - 2, y, 2, 1)
+    }
+    ctx.globalAlpha = 1
+  }
+
+  // Matrix rain: drop speed and brightness follow the band energy
+  function drawRain() {
+    state.analyser.getByteFrequencyData(freqData)
+    // Translucent wipe leaves fading trails
+    ctx.globalAlpha = 0.22
     ctx.fillStyle = state.lcdBg
     ctx.fillRect(0, 0, W, H)
-    const BARSM = 40
-    const bw = Math.floor(W / BARSM) - 1
-    const mid = H * 0.5
-    for (let i = 0; i < BARSM; i++) {
-      const bs = Math.floor(i * (bufLen * 0.75) / BARSM)
-      const be = Math.floor((i + 1) * (bufLen * 0.75) / BARSM)
-      let sum = 0
-      for (let j = bs; j < be; j++) sum += freqData[j]
-      const v = sum / (be - bs) / 255
-      const h = Math.max(1, v * (mid - 2))
-      const x = i * (bw + 1)
-      const top = v > 0.7 ? '#ff4444' : v > 0.4 ? '#ffdd00' : state.lcdGreen
-      const g = ctx.createLinearGradient(0, mid - h, 0, mid)
-      g.addColorStop(0, top)
-      g.addColorStop(1, state.lcdMid)
-      ctx.fillStyle = g
-      ctx.fillRect(x, mid - h, bw, h)
-      // Reflection below, dimmer
-      ctx.globalAlpha = 0.4
-      const g2 = ctx.createLinearGradient(0, mid, 0, mid + h)
-      g2.addColorStop(0, state.lcdMid)
-      g2.addColorStop(1, 'transparent')
-      ctx.fillStyle = g2
-      ctx.fillRect(x, mid, bw, h)
-      ctx.globalAlpha = 1
-    }
-    // Glowing center line
-    ctx.fillStyle = state.lcdGreen
-    ctx.globalAlpha = 0.5
-    ctx.fillRect(0, mid - 0.5, W, 1)
     ctx.globalAlpha = 1
+    ctx.font = 'bold 10px monospace'
+    for (let c = 0; c < rainDrops.length; c++) {
+      const d = rainDrops[c]
+      const bi = Math.floor(c * (bufLen * 0.7) / rainDrops.length)
+      const v = freqData[bi] / 255
+      d.y += 0.6 + v * 4.5
+      const ch = RAIN_GLYPHS[Math.floor(Math.random() * RAIN_GLYPHS.length)]
+      ctx.fillStyle = v > 0.65 ? '#ffffff' : state.lcdGreen
+      ctx.globalAlpha = 0.4 + v * 0.6
+      ctx.fillText(ch, c * RAIN_CW + 1, d.y)
+      ctx.globalAlpha = 1
+      if (d.y > H + 12) d.y = -Math.random() * H * 0.6
+    }
   }
 
   draw()
