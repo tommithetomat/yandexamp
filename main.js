@@ -1,9 +1,39 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron')
+const { app, BrowserWindow, ipcMain, session, safeStorage } = require('electron')
 const path = require('path')
+const fs = require('fs')
 const YandexMusicService = require('./src/yandex-music')
 
 let mainWindow
 const yandex = new YandexMusicService()
+
+// --- Persisted auth (encrypted with the OS keychain when available) ---
+
+const authFile = () => path.join(app.getPath('userData'), 'auth.json')
+
+function saveAuth() {
+  try {
+    if (!yandex.token) return
+    const payload = JSON.stringify({ token: yandex.token, uid: yandex.uid })
+    let data, enc = false
+    if (safeStorage.isEncryptionAvailable()) {
+      data = safeStorage.encryptString(payload).toString('base64')
+      enc = true
+    } else {
+      data = Buffer.from(payload, 'utf8').toString('base64')
+    }
+    fs.writeFileSync(authFile(), JSON.stringify({ enc, data }))
+  } catch (_) {}
+}
+
+function loadAuth() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(authFile(), 'utf8'))
+    const buf = Buffer.from(raw.data, 'base64')
+    const payload = raw.enc ? safeStorage.decryptString(buf) : buf.toString('utf8')
+    const { token, uid } = JSON.parse(payload)
+    if (token) yandex.setToken(token, uid || null)
+  } catch (_) {}
+}
 
 function createWindow() {
   // Allow Yandex Music CDN audio in renderer (no CORS block)
@@ -55,6 +85,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  loadAuth()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -111,6 +142,7 @@ ipcMain.handle('yandex:loginBrowser', () => {
       } catch (_) {
         yandex.setToken(token, uid)
       }
+      saveAuth()
       done({ success: true })   // done() BEFORE closeWin() so exceptions in destroy() can't swallow it
       closeWin()
     }
@@ -200,9 +232,18 @@ ipcMain.handle('window:setHeight', (_, height) => {
   mainWindow.setResizable(false)
 })
 
+// Silent session restore from the saved token; validates it against the API
+ipcMain.handle('yandex:restoreSession', async () => {
+  if (!yandex.token) return { success: false }
+  const account = await yandex.initSession()
+  if (!account) return { success: false }
+  return { success: true }
+})
+
 ipcMain.handle('yandex:login', async (_, { username, password }) => {
   try {
     await yandex.login(username, password)
+    saveAuth()
     return { success: true }
   } catch (err) {
     return { success: false, error: err.message || String(err) }
@@ -212,6 +253,7 @@ ipcMain.handle('yandex:login', async (_, { username, password }) => {
 ipcMain.handle('yandex:loginWithToken', async (_, { token }) => {
   try {
     yandex.setToken(token)
+    saveAuth()
     return { success: true }
   } catch (err) {
     return { success: false, error: err.message || String(err) }

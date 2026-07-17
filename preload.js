@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
     setHeight: (h) => ipcRenderer.invoke('window:setHeight', h),
   },
   yandex: {
+    restoreSession: () => ipcRenderer.invoke('yandex:restoreSession'),
     login: (username, password) => ipcRenderer.invoke('yandex:login', { username, password }),
     loginWithToken: (token) => ipcRenderer.invoke('yandex:loginWithToken', { token }),
     loginBrowser: () => ipcRenderer.invoke('yandex:loginBrowser'),

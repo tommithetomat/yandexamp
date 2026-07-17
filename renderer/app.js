@@ -18,7 +18,7 @@ const state = {
   animFrameId: null,
   eqNodes: [],
   eqBands: [60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000],
-  vizMode: 'bars',      // 'bars' | 'scope' | 'star'
+  vizMode: 'scope',     // scope | bars | led | phos | neon
   userPlaylists: [],
   waveMode: false,      // "Моя волна" active — auto-extend playlist near the end
   likedIds: new Set(),  // liked track ids for the ♥ indicator
@@ -74,8 +74,17 @@ window.addEventListener('unhandledrejection', (e) => {
 })
 
 // ===== INIT =====
+const VIZ_MODES = ['scope', 'bars', 'led', 'phos', 'neon']
+
 document.addEventListener('DOMContentLoaded', () => {
+  // Restore volume and visualizer mode
+  const savedVol = parseFloat(localStorage.getItem('yamp-vol'))
+  if (!Number.isNaN(savedVol)) state.volume = Math.min(1, Math.max(0, savedVol))
   audio.volume = state.volume
+  $('volume').value = Math.round(state.volume * 100)
+  const savedViz = localStorage.getItem('yamp-viz')
+  if (VIZ_MODES.includes(savedViz)) state.vizMode = savedViz
+
   initTheme()
   bindLoginUI()
   bindPlayerUI()
@@ -84,6 +93,12 @@ document.addEventListener('DOMContentLoaded', () => {
   bindEqUI()
   bindSeekbar()
   startSpectrumIdle()
+
+  // Silent auto-login with the saved token
+  ;(async () => {
+    const res = await window.api.yandex.restoreSession()
+    if (res.success) enterPlayer()
+  })()
 })
 
 // ===== LOGIN =====
@@ -169,12 +184,48 @@ function setLoginLoading(on) {
 function enterPlayer() {
   $('login-screen').classList.add('hidden')
   $('player-screen').classList.remove('hidden')
+  restorePlayerState()
   // Wait one frame so the DOM becomes visible before measuring offsetHeight
   requestAnimationFrame(() => {
     updateWindowHeight()
   })
   setupAudio()
   loadLikedIds()
+}
+
+// ===== PERSISTED PLAYER STATE =====
+let _saveStateTimer = null
+function savePlayerState() {
+  if (_saveStateTimer) return
+  _saveStateTimer = setTimeout(() => {
+    _saveStateTimer = null
+    try {
+      localStorage.setItem('yamp-state', JSON.stringify({
+        playlist: state.playlist,
+        currentIndex: state.currentIndex,
+        waveMode: state.waveMode,
+      }))
+    } catch (_) {}
+  }, 500)
+}
+
+function restorePlayerState() {
+  try {
+    const s = JSON.parse(localStorage.getItem('yamp-state') || 'null')
+    if (!s || !Array.isArray(s.playlist) || !s.playlist.length) return
+    state.playlist = s.playlist
+    state.currentIndex = Math.min(s.currentIndex ?? -1, s.playlist.length - 1)
+    state.waveMode = Boolean(s.waveMode)
+    renderPlaylist()
+    updatePlCount()
+    if (state.currentIndex >= 0) {
+      const t = state.playlist[state.currentIndex]
+      setTrackTitle(`${t.artist} — ${t.title}`)
+      setCoverArt(t.coverUri)
+      highlightPlaylistItem(state.currentIndex)
+      updateLikeUI()
+    }
+  } catch (_) {}
 }
 
 async function loadLikedIds() {
@@ -216,9 +267,9 @@ function bindPlayerUI() {
 
   // Visualizer mode cycle on canvas click
   $('spectrum').addEventListener('click', () => {
-    const modes = ['bars', 'scope', 'led', 'phos', 'neon']
-    state.vizMode = modes[(modes.indexOf(state.vizMode) + 1) % modes.length]
-    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', phos: '〜 SCOPE II', neon: '‖ NEON' }
+    state.vizMode = VIZ_MODES[(VIZ_MODES.indexOf(state.vizMode) + 1) % VIZ_MODES.length]
+    localStorage.setItem('yamp-viz', state.vizMode)
+    const labels = { scope: '〜 SCOPE', bars: '◼ SPECTRUM', led: '▦ LED MATRIX', phos: '〜 SCOPE II', neon: '‖ NEON' }
     flashMeta(labels[state.vizMode])
   })
 
@@ -276,6 +327,7 @@ function bindPlayerUI() {
   $('volume').addEventListener('input', (e) => {
     state.volume = e.target.value / 100
     audio.volume = state.volume
+    localStorage.setItem('yamp-vol', String(state.volume))
   })
 
   $('balance').addEventListener('input', (e) => {
@@ -670,6 +722,7 @@ async function playTrackByIndex(index) {
   if (index < 0 || index >= state.playlist.length) return
   const seq = ++_playSeq
   state.currentIndex = index
+  savePlayerState()
   const track = state.playlist[index]
 
   setTrackTitle(`${track.artist} — ${track.title}`)
@@ -743,6 +796,11 @@ function playPause() {
   }
 
   if (audio.paused) {
+    // Restored session: the current track has no stream URL yet
+    if (!audio.src) {
+      playTrackByIndex(state.currentIndex)
+      return
+    }
     audio.play()
     state.isPlaying = true
     setPlayStatus('▶')
@@ -818,6 +876,7 @@ function addTrackToPlaylist(track) {
   state.playlist.push(track)
   renderPlaylist()
   updatePlCount()
+  savePlayerState()
 }
 
 function clearPlaylist() {
@@ -828,6 +887,7 @@ function clearPlaylist() {
   state.history = []
   renderPlaylist()
   updatePlCount()
+  savePlayerState()
   setTrackTitle('YandexAmp — плейлист очищен')
 }
 
