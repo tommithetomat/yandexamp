@@ -22,6 +22,7 @@ const state = {
   userPlaylists: [],
   waveMode: false,      // "Моя волна" active — auto-extend playlist near the end
   likedIds: new Set(),  // liked track ids for the ♥ indicator
+  history: [],          // indexes of previously played tracks (for prev in shuffle)
   // Canvas colors — updated by applyTheme()
   lcdBg: '#0b1a0b', lcdGreen: '#33ff66', lcdDim: '#0d3318', lcdMid: '#1aaa44',
 }
@@ -215,9 +216,9 @@ function bindPlayerUI() {
 
   // Visualizer mode cycle on canvas click
   $('spectrum').addEventListener('click', () => {
-    const modes = ['bars', 'scope', 'led', 'phos', 'cubes']
+    const modes = ['bars', 'scope', 'led', 'phos']
     state.vizMode = modes[(modes.indexOf(state.vizMode) + 1) % modes.length]
-    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', phos: '〜 SCOPE II', cubes: '▣ CUBES' }
+    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', phos: '〜 SCOPE II' }
     flashMeta(labels[state.vizMode])
   })
 
@@ -483,6 +484,7 @@ async function loadUserPlaylists() {
       // Replace the current playlist with the loaded one
       state.playlist = []
       state.currentIndex = -1
+      state.history = []
       res2.data.tracks.forEach(t => addTrackToPlaylist(t))
       flashMeta(`✓ ${res2.data.title}`)
       if (state.playlist.length) playTrackByIndex(0)
@@ -770,15 +772,26 @@ function userSkip() {
   playNext()
 }
 
+function rememberCurrent() {
+  if (state.currentIndex >= 0) {
+    state.history.push(state.currentIndex)
+    if (state.history.length > 500) state.history.shift()
+  }
+}
+
 function playNext() {
   if (state.playlist.length === 0) return
   let next
   if (state.isShuffle) {
-    next = Math.floor(Math.random() * state.playlist.length)
+    // Random, but never the track that is playing right now
+    do {
+      next = Math.floor(Math.random() * state.playlist.length)
+    } while (next === state.currentIndex && state.playlist.length > 1)
   } else {
     next = state.currentIndex + 1
     if (next >= state.playlist.length) next = 0
   }
+  rememberCurrent()
   playTrackByIndex(next)
 }
 
@@ -786,6 +799,11 @@ function playPrev() {
   if (state.playlist.length === 0) return
   if (audio.currentTime > 3) {
     audio.currentTime = 0
+    return
+  }
+  // Real history — in shuffle this returns to the actually played track
+  if (state.history.length) {
+    playTrackByIndex(state.history.pop())
     return
   }
   let prev = state.currentIndex - 1
@@ -806,6 +824,7 @@ function clearPlaylist() {
   state.playlist = []
   state.currentIndex = -1
   state.waveMode = false
+  state.history = []
   renderPlaylist()
   updatePlCount()
   setTrackTitle('YandexAmp — плейлист очищен')
@@ -830,6 +849,7 @@ function renderPlaylist() {
     el.addEventListener('click', () => {
       const i = Number(el.dataset.index)
       if (i === state.currentIndex && !audio.paused) return // already playing this one
+      rememberCurrent()
       playTrackByIndex(i)
     })
   })
@@ -925,16 +945,11 @@ function startSpectrumAnimation() {
   const LED_COLS = 28, LED_ROWS = 10
   const ledPeaks = new Array(LED_COLS).fill(0)
 
-  // Cube grid: per-column energy history gives a wave rolling through rows
-  const CUBE_COLS = 14, CUBE_ROWS = 4
-  const cubeHist = []
-
   function draw() {
     state.animFrameId = requestAnimationFrame(draw)
     if (state.vizMode === 'scope') drawScope()
     else if (state.vizMode === 'led') drawLed()
     else if (state.vizMode === 'phos') drawPhosphor()
-    else if (state.vizMode === 'cubes') drawCubes()
     else drawBars()
   }
 
@@ -1063,51 +1078,6 @@ function startSpectrumAnimation() {
       ctx.globalAlpha = 1
     }
     ctx.shadowBlur = 0
-  }
-
-  // Cubes seen from above rising towards the viewer: louder band —
-  // bigger and brighter the cube; history rolls a wave through the rows
-  function drawCubes() {
-    state.analyser.getByteFrequencyData(freqData)
-    const cols = []
-    for (let c = 0; c < CUBE_COLS; c++) {
-      const bs = Math.floor(c * (bufLen * 0.7) / CUBE_COLS)
-      const be = Math.floor((c + 1) * (bufLen * 0.7) / CUBE_COLS)
-      let sum = 0
-      for (let j = bs; j < be; j++) sum += freqData[j]
-      cols.push(sum / (be - bs) / 255)
-    }
-    cubeHist.unshift(cols)
-    if (cubeHist.length > 24) cubeHist.pop()
-
-    ctx.fillStyle = state.lcdBg
-    ctx.fillRect(0, 0, W, H)
-    const cellW = W / CUBE_COLS, cellH = H / CUBE_ROWS
-    for (let r = 0; r < CUBE_ROWS; r++) {
-      // Older frames drive the back rows → the wave rolls towards the viewer
-      const hist = cubeHist[Math.min(cubeHist.length - 1, (CUBE_ROWS - 1 - r) * 6)] || cols
-      for (let c = 0; c < CUBE_COLS; c++) {
-        const v = hist[c]
-        const size = 0.22 + v * 0.72          // rising = growing towards you
-        const sw2 = cellW * size, sh2 = cellH * size
-        const x = c * cellW + (cellW - sw2) / 2
-        const y = r * cellH + (cellH - sh2) / 2
-        // Drop shadow — the deeper the cube, the flatter it looks
-        ctx.fillStyle = '#000000'
-        ctx.globalAlpha = 0.5
-        ctx.fillRect(x + 2, y + 2, sw2, sh2)
-        // Cube top face
-        ctx.fillStyle = v > 0.72 ? '#ff4444' : v > 0.45 ? '#ffdd00' : state.lcdGreen
-        ctx.globalAlpha = 0.25 + v * 0.75
-        ctx.fillRect(x, y, sw2, sh2)
-        // Highlight edge (top-left) fakes the 3D bevel
-        ctx.globalAlpha = Math.min(1, 0.3 + v)
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(x, y, sw2, 1)
-        ctx.fillRect(x, y, 1, sh2)
-        ctx.globalAlpha = 1
-      }
-    }
   }
 
   draw()

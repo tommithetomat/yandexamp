@@ -129,9 +129,16 @@ class YandexMusicService {
     const data = await this._apiGet(`/users/${this.uid}/likes/tracks`)
     const refs = data.result?.library?.tracks || []
     if (!refs.length) return { title: 'Мне нравится', tracks: [] }
-    const ids = refs.slice(0, 300).map(r => (r.albumId ? `${r.id}:${r.albumId}` : String(r.id)))
-    const full = await this._apiPost('/tracks', { 'track-ids': ids.join(',') })
-    const tracks = (full.result || []).filter(t => t && !t.error).map(t => this._mapTrack(t))
+    const ids = refs.map(r => (r.albumId ? `${r.id}:${r.albumId}` : String(r.id)))
+    // Fetch full track info in chunks — the /tracks endpoint chokes on huge lists
+    const tracks = []
+    for (let i = 0; i < ids.length; i += 250) {
+      const chunk = ids.slice(i, i + 250)
+      const full = await this._apiPost('/tracks', { 'track-ids': chunk.join(',') })
+      for (const t of (full.result || [])) {
+        if (t && !t.error) tracks.push(this._mapTrack(t))
+      }
+    }
     return { title: 'Мне нравится', tracks }
   }
 
