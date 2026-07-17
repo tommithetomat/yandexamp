@@ -33,7 +33,8 @@ function createWindow() {
 
   mainWindow = new BrowserWindow({
     width: 550,
-    height: 310,
+    height: 340,
+    useContentSize: true,
     frame: false,
     resizable: false,
     transparent: false,
@@ -190,8 +191,13 @@ ipcMain.handle('yandex:loginBrowser', () => {
 })
 
 ipcMain.handle('window:setHeight', (_, height) => {
-  const [w] = mainWindow.getSize()
-  mainWindow.setSize(w, height, true)
+  const h = Math.round(height)
+  const [w, cur] = mainWindow.getContentSize()
+  if (cur === h) return
+  // On Windows setSize can be ignored while resizable=false — toggle around it
+  mainWindow.setResizable(true)
+  mainWindow.setContentSize(w, h, false)
+  mainWindow.setResizable(false)
 })
 
 ipcMain.handle('yandex:login', async (_, { username, password }) => {

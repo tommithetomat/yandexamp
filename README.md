@@ -2,7 +2,7 @@
 
 Десктопный плеер в стиле классического **Winamp 2.x** со стримингом из **Яндекс Музыки**.
 
-![Electron](https://img.shields.io/badge/Electron-43-2b2e3a) ![Platform](https://img.shields.io/badge/Windows-10%2F11-0078d4) ![License](https://img.shields.io/badge/license-MIT-green)
+![Electron](https://img.shields.io/badge/Electron-43-2b2e3a) ![Platform](https://img.shields.io/badge/Windows%20%7C%20macOS-0078d4) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Возможности
 
@@ -20,11 +20,24 @@
 
 ## Установка (для пользователей)
 
+### Windows
+
 1. Скачайте `YandexAmp-Setup-*.exe` из [Releases](../../releases)
 2. Запустите — установщик сам создаст ярлык на рабочем столе
-3. Войдите в аккаунт Яндекса и слушайте
+3. SmartScreen может предупредить о неизвестном издателе — «Подробнее → Выполнить в любом случае»
+
+### macOS
+
+1. Скачайте `YandexAmp-*-arm64.dmg` (Apple Silicon) или `YandexAmp-*-x64.dmg` (Intel) из [Releases](../../releases)
+2. Откройте DMG и перетащите YandexAmp в Applications
+3. Приложение не подписано сертификатом Apple, поэтому при первом запуске: **правый клик → Открыть**. Если macOS пишет «приложение повреждено», выполните в терминале:
+   ```bash
+   xattr -cr /Applications/YandexAmp.app
+   ```
 
 ## Запуск из исходников (для разработчиков)
+
+Работает на Windows и macOS:
 
 ```bash
 git clone <repo-url>
@@ -33,13 +46,19 @@ npm install
 npm start
 ```
 
-## Сборка установщика
+## Сборка установщиков
 
 ```bash
-npm run dist
+npm run dist       # Windows: dist/YandexAmp-Setup-<версия>.exe
+npm run dist:mac   # macOS (только на маке): dist/YandexAmp-<версия>-<arch>.dmg
 ```
 
-Готовый `YandexAmp-Setup-<версия>.exe` появится в папке `dist/`.
+DMG собирается только на macOS — но для этого есть CI: при пуше тега `v*` GitHub Actions сам собирает установщики под обе платформы и прикладывает их к релизу:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
 
 ## Как это устроено
 

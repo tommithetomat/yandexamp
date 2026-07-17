@@ -267,6 +267,17 @@ function bindPlayerUI() {
 
   // Dragging the title bar
   makeDraggable($('titlebar'))
+
+  // Adaptive window height: any change in player content (panels toggled,
+  // playlist grows/shrinks) resizes the OS window to match
+  const playerScreen = $('player-screen')
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      if (playerScreen.classList.contains('hidden')) return
+      const h = playerScreen.offsetHeight
+      if (h > 0) window.api.window.setHeight(h)
+    }).observe(playerScreen)
+  }
 }
 
 // ===== SEEKBAR =====
@@ -891,12 +902,8 @@ function startSpectrumAnimation() {
 
 // ===== WINDOW HEIGHT =====
 function updateWindowHeight() {
-  const playerH = $('winamp').offsetHeight
-  const plH    = state.isPlaylistVisible ? $('playlist-win').offsetHeight : 0
-  const myplH  = state.isMyPlVisible    ? $('mypl-win').offsetHeight     : 0
-  const eqH    = state.isEqVisible      ? $('eq-win').offsetHeight       : 0
-  const total  = playerH + plH + myplH + eqH + 4
-  window.api.window.setHeight(total)
+  const h = $('player-screen').offsetHeight
+  if (h > 0) window.api.window.setHeight(h)
 }
 
 // ===== DRAGGABLE WINDOW =====

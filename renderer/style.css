@@ -258,7 +258,7 @@ details .login-section { padding: 0 8px 8px; }
   border-color: var(--bevel-lo) var(--bevel-hi) var(--bevel-hi) var(--bevel-lo);
   margin: 4px 6px 0;
   padding: 6px;
-  height: 104px;
+  height: 136px;
 }
 
 #display-left {
@@ -319,16 +319,19 @@ details .login-section { padding: 0 8px 8px; }
 }
 
 #track-scroller {
-  height: 24px;
+  /* Fixed height so the line never jumps when other elements change */
+  height: 32px;
+  flex: none;
   overflow: hidden;
   background: #040f04;
   border: 1px solid #051105;
-  padding: 3px 4px;
+  padding: 0 5px;
+  line-height: 30px;
 }
 #track-title-text {
-  font-size: 14px;
+  font-size: 17px;
   color: var(--lcd-green);
-  text-shadow: 0 0 5px var(--lcd-green);
+  text-shadow: 0 0 6px var(--lcd-green);
   white-space: nowrap;
   display: inline-block;
 }
@@ -341,6 +344,11 @@ details .login-section { padding: 0 8px 8px; }
 }
 
 #track-meta {
+  /* Fixed height: flash messages swap in without shifting the layout */
+  height: 13px;
+  line-height: 13px;
+  flex: none;
+  overflow: hidden;
   font-size: 10px;
   color: var(--lcd-dim);
   margin: 3px 0 4px;
