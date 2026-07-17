@@ -5,9 +5,14 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# The default GITHUB_TOKEN is read-only; creating a release needs contents:write
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
