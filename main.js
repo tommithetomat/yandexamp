@@ -100,6 +100,9 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('window:minimize', () => mainWindow.minimize())
 ipcMain.handle('window:close', () => mainWindow.close())
+ipcMain.handle('window:setPin', (_, on) => {
+  mainWindow.setAlwaysOnTop(Boolean(on), 'floating')
+})
 
 // --- Browser OAuth ---
 

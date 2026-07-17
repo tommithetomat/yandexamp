@@ -249,6 +249,19 @@ function bindPlayerUI() {
   $('btn-next').addEventListener('click', userSkip)
   $('btn-search').addEventListener('click', openSearch)
 
+  // Pin window on top of everything
+  $('btn-pin').addEventListener('click', () => {
+    const on = !$('btn-pin').classList.contains('active')
+    $('btn-pin').classList.toggle('active', on)
+    window.api.window.setPin(on)
+    localStorage.setItem('yamp-pin', on ? '1' : '0')
+    flashMeta(on ? '📌 поверх всех окон' : 'обычный режим')
+  })
+  if (localStorage.getItem('yamp-pin') === '1') {
+    $('btn-pin').classList.add('active')
+    window.api.window.setPin(true)
+  }
+
   // Skin cycling
   $('btn-skin').addEventListener('click', () => {
     const cur = document.body.dataset.theme || 'classic'

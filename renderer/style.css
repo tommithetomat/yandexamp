@@ -77,7 +77,8 @@ html, body {
   -webkit-app-region: no-drag;
 }
 .title-btn {
-  width: 16px;
+  min-width: 16px;
+  padding: 0 3px;
   height: 14px;
   font-size: 10px;
   line-height: 1;
@@ -93,6 +94,11 @@ html, body {
 }
 .title-btn:active {
   border-color: var(--bevel-lo) var(--bevel-hi) var(--bevel-hi) var(--bevel-lo);
+}
+.title-btn.active {
+  color: var(--accent);
+  border-color: var(--bevel-lo) var(--bevel-hi) var(--bevel-hi) var(--bevel-lo);
+  background: var(--bg-dark);
 }
 
 /* ===== LOGIN SCREEN ===== */

@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('api', {
     minimize: () => ipcRenderer.invoke('window:minimize'),
     close: () => ipcRenderer.invoke('window:close'),
     setHeight: (h) => ipcRenderer.invoke('window:setHeight', h),
+    setPin: (on) => ipcRenderer.invoke('window:setPin', on),
   },
   yandex: {
     restoreSession: () => ipcRenderer.invoke('yandex:restoreSession'),
