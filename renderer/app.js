@@ -216,9 +216,9 @@ function bindPlayerUI() {
 
   // Visualizer mode cycle on canvas click
   $('spectrum').addEventListener('click', () => {
-    const modes = ['bars', 'scope', 'led', 'phos']
+    const modes = ['bars', 'scope', 'led', 'phos', 'neon']
     state.vizMode = modes[(modes.indexOf(state.vizMode) + 1) % modes.length]
-    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', phos: '〜 SCOPE II' }
+    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', phos: '〜 SCOPE II', neon: '‖ NEON' }
     flashMeta(labels[state.vizMode])
   })
 
@@ -678,6 +678,7 @@ async function playTrackByIndex(index) {
 
   highlightPlaylistItem(index)
   updateLikeUI()
+  setCoverArt(track.coverUri)
 
   const res = await window.api.yandex.getTrackUrl(track.id)
   if (seq !== _playSeq) return // another track was requested meanwhile
@@ -870,13 +871,29 @@ function updatePlCount() {
 }
 
 // ===== DISPLAY HELPERS =====
+function setCoverArt(coverUri) {
+  const img = $('cover-art')
+  if (!coverUri) {
+    img.style.display = 'none'
+    img.removeAttribute('src')
+    return
+  }
+  img.onload = () => { img.style.display = 'block' }
+  img.onerror = () => { img.style.display = 'none' }
+  img.src = 'https://' + coverUri.replace('%%', '200x200')
+}
+
 function updateLikeUI() {
   const t = state.playlist[state.currentIndex]
   $('btn-like').classList.toggle('liked', Boolean(t && state.likedIds.has(t.id)))
 }
 
+let _currentTitle = ''
 function setTrackTitle(text) {
-  $('track-title-text').textContent = text
+  _currentTitle = text
+  const el = $('track-title-text')
+  el.classList.remove('scrolling')
+  el.textContent = text
 }
 
 function setPlayStatus(icon) {
@@ -884,11 +901,23 @@ function setPlayStatus(icon) {
 }
 
 function startScrollingTitle() {
-  $('track-title-text').classList.add('scrolling')
+  const el = $('track-title-text')
+  el.classList.remove('scrolling')
+  el.textContent = _currentTitle
+  // Scroll only when the title doesn't fit
+  if (el.scrollWidth <= $('track-scroller').clientWidth - 2) return
+  // Double the content: animating to -50% loops seamlessly
+  const half = _currentTitle + '   •   '
+  el.textContent = half + half
+  const halfWidth = el.scrollWidth / 2
+  el.style.setProperty('--marquee-dur', (halfWidth / 35).toFixed(2) + 's') // ~35 px/s
+  el.classList.add('scrolling')
 }
 
 function stopScrollingTitle() {
-  $('track-title-text').classList.remove('scrolling')
+  const el = $('track-title-text')
+  el.classList.remove('scrolling')
+  el.textContent = _currentTitle
 }
 
 function updateTimeDisplay() {
@@ -950,6 +979,7 @@ function startSpectrumAnimation() {
     if (state.vizMode === 'scope') drawScope()
     else if (state.vizMode === 'led') drawLed()
     else if (state.vizMode === 'phos') drawPhosphor()
+    else if (state.vizMode === 'neon') drawNeon()
     else drawBars()
   }
 
@@ -1078,6 +1108,36 @@ function startSpectrumAnimation() {
       ctx.globalAlpha = 1
     }
     ctx.shadowBlur = 0
+  }
+
+  // Neon: thin bars mirrored around the centre line, coloured by level —
+  // blue when quiet, through violet/pink/red, orange on peaks
+  function drawNeon() {
+    state.analyser.getByteFrequencyData(freqData)
+    ctx.fillStyle = state.lcdBg
+    ctx.fillRect(0, 0, W, H)
+    const NB = 52
+    const slot = W / NB
+    const barW = Math.max(3, slot - 4)
+    const mid = H / 2
+    for (let i = 0; i < NB; i++) {
+      const bs = Math.floor(i * (bufLen * 0.72) / NB)
+      const be = Math.floor((i + 1) * (bufLen * 0.72) / NB)
+      let sum = 0
+      for (let j = bs; j < be; j++) sum += freqData[j]
+      const v = sum / (be - bs) / 255
+      const h = Math.max(4, Math.pow(v, 0.85) * (H - 4))
+      const color = v > 0.82 ? '#ff9900'
+                  : v > 0.62 ? '#ff2255'
+                  : v > 0.45 ? '#ff33bb'
+                  : v > 0.28 ? '#aa33ff'
+                  : '#4433ff'
+      ctx.fillStyle = color
+      const x = i * slot + (slot - barW) / 2
+      ctx.beginPath()
+      ctx.roundRect(x, mid - h / 2, barW, h, barW / 2)
+      ctx.fill()
+    }
   }
 
   draw()

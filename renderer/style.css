@@ -333,6 +333,34 @@ details .login-section { padding: 0 8px 8px; }
   text-shadow: 0 0 6px #ff3355;
 }
 
+#cover-box {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  flex: none;
+  align-self: center;
+  margin-left: 8px;
+  border: 1px solid var(--lcd-dim);
+  background: #000;
+  overflow: hidden;
+}
+#cover-ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  color: var(--lcd-dim);
+}
+#cover-art {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+
 #display-right {
   flex: 1;
   display: flex;
@@ -358,12 +386,13 @@ details .login-section { padding: 0 8px 8px; }
   white-space: nowrap;
   display: inline-block;
 }
+/* Seamless marquee: the text is doubled in JS, one full half scrolls by */
 #track-title-text.scrolling {
-  animation: scroll-text 12s linear infinite;
+  animation: scroll-text var(--marquee-dur, 12s) linear infinite;
 }
 @keyframes scroll-text {
-  0%   { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 #track-meta {
