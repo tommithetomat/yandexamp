@@ -162,11 +162,12 @@ class YandexMusicService {
   // Wave (rotor) settings: moodEnergy: fun|active|calm|sad|all,
   // diversity: favorite|popular|discover|default, language: russian|not-russian|any
   async setWaveSettings({ moodEnergy = 'all', diversity = 'default', language = 'any' } = {}) {
-    const form = { moodEnergy, diversity, language, type: 'rotor' }
+    // The rotor settings endpoint expects a JSON body (form-encoded is ignored)
+    const body = { moodEnergy, diversity, language, type: 'rotor' }
     try {
-      return await this._apiPost('/rotor/station/user:onyourwave/settings3', form)
+      return await this._apiPostJson('/rotor/station/user:onyourwave/settings3', body)
     } catch (_) {
-      return await this._apiPost('/rotor/station/user:onyourwave/settings2', form)
+      return await this._apiPostJson('/rotor/station/user:onyourwave/settings2', body)
     }
   }
 

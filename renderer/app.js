@@ -215,9 +215,9 @@ function bindPlayerUI() {
 
   // Visualizer mode cycle on canvas click
   $('spectrum').addEventListener('click', () => {
-    const modes = ['bars', 'scope', 'star', 'fire', 'ring']
+    const modes = ['bars', 'scope', 'led', 'mirror']
     state.vizMode = modes[(modes.indexOf(state.vizMode) + 1) % modes.length]
-    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', star: '✦ STARFIELD', fire: '♨ FIRE', ring: '◎ PULSE' }
+    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', mirror: '▲▼ MIRROR' }
     flashMeta(labels[state.vizMode])
   })
 
@@ -469,7 +469,8 @@ async function loadUserPlaylists() {
           language:   $('wave-lang').value,
         }
         localStorage.setItem('yamp-wave', JSON.stringify(settings))
-        await window.api.yandex.setWaveSettings(settings)
+        const sRes = await window.api.yandex.setWaveSettings(settings)
+        if (!sRes.success) flashMeta('⚠ настройки волны: ' + (sRes.error || 'ошибка'))
         res2 = await window.api.yandex.getWaveTracks()
       }
       else if (btn.dataset.type === 'liked') res2 = await window.api.yandex.getLikedTracks()
@@ -918,27 +919,15 @@ function startSpectrumAnimation() {
   const peaks = new Array(BARS).fill(0)
   const peakVel = new Array(BARS).fill(0)
 
-  // Stars for starfield mode — initialized once
-  const stars = Array.from({ length: 120 }, () => ({
-    x: Math.random() * W,
-    y: Math.floor(Math.random() * H),
-    spd: 0.4 + Math.random() * 1.4,
-    sz: Math.random() < 0.2 ? 2 : 1,
-  }))
-
-  // Fire buffer — classic demoscene flame seeded by the spectrum
-  const FW = 84, FH = 14
-  const heat = new Float32Array(FW * (FH + 2))
-  const cellW = W / FW, cellH = H / FH
-
-  let ringRot = 0
+  // LED matrix: falling peak dot per column
+  const LED_COLS = 28, LED_ROWS = 10
+  const ledPeaks = new Array(LED_COLS).fill(0)
 
   function draw() {
     state.animFrameId = requestAnimationFrame(draw)
     if (state.vizMode === 'scope') drawScope()
-    else if (state.vizMode === 'star') drawStars()
-    else if (state.vizMode === 'fire') drawFire()
-    else if (state.vizMode === 'ring') drawRing()
+    else if (state.vizMode === 'led') drawLed()
+    else if (state.vizMode === 'mirror') drawMirror()
     else drawBars()
   }
 
@@ -988,94 +977,81 @@ function startSpectrumAnimation() {
     ctx.shadowBlur = 0
   }
 
-  function drawStars() {
+  // Hi-fi LED dot matrix: columns of segments with falling peak dots
+  function drawLed() {
     state.analyser.getByteFrequencyData(freqData)
-    const bass = freqData.slice(0, 6).reduce((a, b) => a + b, 0) / 6 / 255
-    const spd = 1 + bass * 5
-    // Fading trail
-    ctx.fillStyle = 'rgba(0,0,0,0.28)'
+    ctx.fillStyle = state.lcdBg
     ctx.fillRect(0, 0, W, H)
+    const cw = W / LED_COLS, chh = H / LED_ROWS
+    for (let c = 0; c < LED_COLS; c++) {
+      const bs = Math.floor(c * (bufLen * 0.75) / LED_COLS)
+      const be = Math.floor((c + 1) * (bufLen * 0.75) / LED_COLS)
+      let sum = 0
+      for (let j = bs; j < be; j++) sum += freqData[j]
+      const v = sum / (be - bs) / 255
+      const level = v * LED_ROWS
+      if (level > ledPeaks[c]) ledPeaks[c] = level
+      else ledPeaks[c] = Math.max(0, ledPeaks[c] - 0.14)
+      for (let r = 0; r < LED_ROWS; r++) {
+        const fromBottom = LED_ROWS - r
+        const lit = fromBottom <= level
+        const x = c * cw + 1.5, y = r * chh + 1
+        if (lit) {
+          ctx.fillStyle = fromBottom > LED_ROWS * 0.8 ? '#ff4444'
+                        : fromBottom > LED_ROWS * 0.55 ? '#ffdd00'
+                        : state.lcdGreen
+        } else {
+          ctx.fillStyle = state.lcdDim
+          ctx.globalAlpha = 0.35
+        }
+        ctx.fillRect(x, y, cw - 3, chh - 2)
+        ctx.globalAlpha = 1
+      }
+      // Falling peak dot
+      const pr = Math.min(LED_ROWS - 1, LED_ROWS - Math.ceil(ledPeaks[c]))
+      if (ledPeaks[c] > 0.5) {
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(c * cw + 1.5, pr * chh + 1, cw - 3, 2)
+      }
+    }
+  }
+
+  // Center-mirrored spectrum with a dimmed reflection
+  function drawMirror() {
+    state.analyser.getByteFrequencyData(freqData)
+    ctx.fillStyle = state.lcdBg
+    ctx.fillRect(0, 0, W, H)
+    const BARSM = 40
+    const bw = Math.floor(W / BARSM) - 1
+    const mid = H * 0.5
+    for (let i = 0; i < BARSM; i++) {
+      const bs = Math.floor(i * (bufLen * 0.75) / BARSM)
+      const be = Math.floor((i + 1) * (bufLen * 0.75) / BARSM)
+      let sum = 0
+      for (let j = bs; j < be; j++) sum += freqData[j]
+      const v = sum / (be - bs) / 255
+      const h = Math.max(1, v * (mid - 2))
+      const x = i * (bw + 1)
+      const top = v > 0.7 ? '#ff4444' : v > 0.4 ? '#ffdd00' : state.lcdGreen
+      const g = ctx.createLinearGradient(0, mid - h, 0, mid)
+      g.addColorStop(0, top)
+      g.addColorStop(1, state.lcdMid)
+      ctx.fillStyle = g
+      ctx.fillRect(x, mid - h, bw, h)
+      // Reflection below, dimmer
+      ctx.globalAlpha = 0.4
+      const g2 = ctx.createLinearGradient(0, mid, 0, mid + h)
+      g2.addColorStop(0, state.lcdMid)
+      g2.addColorStop(1, 'transparent')
+      ctx.fillStyle = g2
+      ctx.fillRect(x, mid, bw, h)
+      ctx.globalAlpha = 1
+    }
+    // Glowing center line
     ctx.fillStyle = state.lcdGreen
-    for (const s of stars) {
-      s.x -= s.spd * spd
-      if (s.x < 0) { s.x = W + 1; s.y = Math.floor(Math.random() * H) }
-      ctx.fillRect(Math.floor(s.x), s.y, s.sz, s.sz)
-    }
-  }
-
-  function drawFire() {
-    state.analyser.getByteFrequencyData(freqData)
-    // Seed the two bottom rows from the lower half of the spectrum
-    for (let x = 0; x < FW; x++) {
-      const bi = Math.floor(x * (bufLen / 2) / FW)
-      const v = freqData[bi] / 255
-      const seed = v * (0.7 + Math.random() * 0.8)
-      heat[FH * FW + x] = seed
-      heat[(FH + 1) * FW + x] = seed
-    }
-    // One propagation step upwards per frame (rows read values from the
-    // previous frame because we iterate top-down through memory)
-    for (let y = 0; y < FH; y++) {
-      for (let x = 0; x < FW; x++) {
-        const below = (y + 1) * FW
-        const l = heat[below + Math.max(0, x - 1)]
-        const c = heat[below + x]
-        const r = heat[below + Math.min(FW - 1, x + 1)]
-        const b2 = heat[(y + 2) * FW + x]
-        heat[y * FW + x] = (l + c + r + b2) / 4.1
-      }
-    }
-    ctx.fillStyle = state.lcdBg
-    ctx.fillRect(0, 0, W, H)
-    for (let y = 0; y < FH; y++) {
-      for (let x = 0; x < FW; x++) {
-        const t = Math.min(1, heat[y * FW + x] * 1.6)
-        if (t < 0.04) continue
-        const rr = Math.min(255, Math.floor(t * 3 * 255))
-        const gg = Math.max(0, Math.min(255, Math.floor((t * 3 - 1) * 255)))
-        const bb = Math.max(0, Math.min(255, Math.floor((t * 3 - 2) * 255)))
-        ctx.fillStyle = `rgb(${rr},${gg},${bb})`
-        ctx.fillRect(x * cellW, y * cellH, cellW + 1, cellH + 1)
-      }
-    }
-  }
-
-  function drawRing() {
-    state.analyser.getByteFrequencyData(freqData)
-    const bass = freqData.slice(0, 6).reduce((a, b) => a + b, 0) / 6 / 255
-    ringRot += 0.008 + bass * 0.05
-    ctx.fillStyle = state.lcdBg
-    ctx.fillRect(0, 0, W, H)
-    const cx = W / 2, cy = H / 2
-    const N = 72
-    const rx = W * 0.16 + bass * W * 0.04
-    const ry = H * 0.22 + bass * H * 0.10
-    ctx.lineWidth = 2
-    for (let i = 0; i < N; i++) {
-      const bi = Math.floor(i * (bufLen * 0.7) / N)
-      const v = freqData[bi] / 255
-      const ang = ringRot + (i / N) * Math.PI * 2
-      const cos = Math.cos(ang), sin = Math.sin(ang)
-      const x1 = cx + cos * rx, y1 = cy + sin * ry
-      const len = v * v * 1.15
-      const x2 = cx + cos * (rx + len * W * 0.32)
-      const y2 = cy + sin * (ry + len * H * 0.55)
-      ctx.strokeStyle = v > 0.75 ? '#ff4444' : v > 0.5 ? '#ffdd00' : state.lcdGreen
-      ctx.globalAlpha = 0.35 + v * 0.65
-      ctx.beginPath()
-      ctx.moveTo(x1, y1)
-      ctx.lineTo(x2, y2)
-      ctx.stroke()
-    }
+    ctx.globalAlpha = 0.5
+    ctx.fillRect(0, mid - 0.5, W, 1)
     ctx.globalAlpha = 1
-    // Pulsing core
-    ctx.fillStyle = state.lcdGreen
-    ctx.shadowColor = state.lcdGreen
-    ctx.shadowBlur = 8 + bass * 14
-    ctx.beginPath()
-    ctx.ellipse(cx, cy, 2 + bass * 5, 1.5 + bass * 3.5, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.shadowBlur = 0
   }
 
   draw()
