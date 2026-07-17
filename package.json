@@ -1,0 +1,48 @@
+{
+  "name": "yandexamp",
+  "version": "1.0.0",
+  "description": "Winamp-style Yandex Music desktop player",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "dist": "electron-builder --win"
+  },
+  "keywords": [
+    "winamp",
+    "yandex-music",
+    "electron",
+    "player"
+  ],
+  "author": "tommi",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^43.1.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ru.yandexamp.app",
+    "productName": "YandexAmp",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*",
+      "icon.ico"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "YandexAmp-Setup-${version}.${ext}"
+    }
+  }
+}

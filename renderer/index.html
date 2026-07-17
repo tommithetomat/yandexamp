@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YandexAmp</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="classic">
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="win-panel login-panel">
+    <div class="win-titlebar no-drag">
+      <span class="win-title">YandexAmp — Авторизация</span>
+    </div>
+    <div class="login-body">
+      <div class="logo-area">
+        <div class="logo-text">Yandex<span class="logo-amp">Amp</span></div>
+        <div class="logo-sub">Winamp × Яндекс Музыка</div>
+      </div>
+
+      <!-- Primary: browser OAuth -->
+      <button class="win-btn-yandex" id="btn-login-browser">
+        <span class="ya-icon">Я</span> Войти через Яндекс
+      </button>
+
+      <div class="login-divider">— или вручную —</div>
+
+      <!-- Secondary: username/password -->
+      <details class="login-details">
+        <summary class="login-summary">Логин и пароль</summary>
+        <div class="login-section" style="margin-top:6px">
+          <label class="field-label">Логин или email</label>
+          <input type="text" id="login-username" class="win-input" placeholder="user@yandex.ru" autocomplete="username">
+          <label class="field-label">Пароль</label>
+          <input type="password" id="login-password" class="win-input" placeholder="••••••••" autocomplete="current-password">
+          <button class="win-btn-big" id="btn-login">ВОЙТИ</button>
+        </div>
+      </details>
+
+      <!-- Tertiary: raw token -->
+      <details class="login-details">
+        <summary class="login-summary">OAuth токен</summary>
+        <div class="login-section" style="margin-top:6px">
+          <label class="field-label">Вставьте токен (y0_Ag...)</label>
+          <input type="text" id="login-token" class="win-input" placeholder="y0_AgAAAA...">
+          <button class="win-btn-big secondary" id="btn-login-token">ВОЙТИ С ТОКЕНОМ</button>
+        </div>
+      </details>
+
+      <div id="login-error" class="error-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN PLAYER SCREEN -->
+<div id="player-screen" class="hidden">
+
+  <!-- Main Winamp window -->
+  <div id="winamp" class="win-panel">
+
+    <!-- Title bar -->
+    <div id="titlebar" class="win-titlebar draggable">
+      <span class="win-title">YANDEXAMP</span>
+      <div class="title-buttons">
+        <button class="title-btn" id="btn-skin" title="Сменить скин">CLR</button>
+        <button class="title-btn" id="btn-minimize" title="Свернуть">_</button>
+        <button class="title-btn" id="btn-close" title="Закрыть">×</button>
+      </div>
+    </div>
+
+    <!-- Display -->
+    <div id="display">
+      <div id="display-left">
+        <div id="play-indicator">▶</div>
+        <div id="time-display">
+          <span id="time-m">00</span><span class="colon blink">:</span><span id="time-s">00</span>
+        </div>
+        <div id="stereo-mono">
+          <div class="sm-indicator active" id="ind-stereo">ST</div>
+          <div class="sm-indicator" id="ind-mono">MO</div>
+        </div>
+      </div>
+
+      <div id="display-right">
+        <div id="track-scroller">
+          <div id="track-title-text">YandexAmp — готов к работе</div>
+        </div>
+        <div id="track-meta">
+          <span id="meta-info"><span id="track-bitrate">320</span>&nbsp;kbps&nbsp;&nbsp;<span id="track-freq">44</span>&nbsp;kHz</span>
+          <span id="meta-flash"></span>
+        </div>
+        <canvas id="spectrum" width="420" height="52" title="Клик — сменить визуализатор"></canvas>
+      </div>
+    </div>
+
+    <!-- Seekbar -->
+    <div id="seekbar-wrap">
+      <div id="seekbar" title="Перемотка">
+        <div id="seekbar-fill"></div>
+        <div id="seekbar-handle"></div>
+      </div>
+    </div>
+
+    <!-- Controls row -->
+    <div id="controls">
+      <div id="vol-bal">
+        <div class="slider-row">
+          <span class="sl-lbl">VOL</span>
+          <input type="range" class="winamp-range" id="volume" min="0" max="100" value="80">
+        </div>
+        <div class="slider-row">
+          <span class="sl-lbl">BAL</span>
+          <input type="range" class="winamp-range" id="balance" min="-50" max="50" value="0">
+        </div>
+      </div>
+
+      <div id="transport">
+        <button class="tbtn" id="btn-prev"   title="Предыдущий">⏮</button>
+        <button class="tbtn play-btn" id="btn-play" title="Воспроизвести">⏵</button>
+        <button class="tbtn" id="btn-pause"  title="Пауза">⏸</button>
+        <button class="tbtn" id="btn-stop"   title="Стоп">⏹</button>
+        <button class="tbtn" id="btn-next"   title="Следующий">⏭</button>
+        <button class="tbtn eject-btn" id="btn-search" title="Поиск / Открыть">⏏</button>
+      </div>
+
+      <div id="feature-btns">
+        <button class="fbtn" id="btn-shuffle" title="Случайно">SHF</button>
+        <button class="fbtn" id="btn-repeat"  title="Повтор">RPT</button>
+        <button class="fbtn" id="btn-eq"      title="Эквалайзер">EQ</button>
+        <button class="fbtn active" id="btn-pl" title="Плейлист">PL</button>
+        <button class="fbtn" id="btn-my"      title="Мои плейлисты">MY</button>
+      </div>
+    </div>
+  </div><!-- #winamp -->
+
+  <!-- Playlist window -->
+  <div id="playlist-win" class="win-panel">
+    <div class="win-titlebar no-drag">
+      <span class="win-title">ПЛЕЙЛИСТ</span>
+      <div class="title-buttons">
+        <button class="title-btn" id="pl-close" title="Скрыть">_</button>
+      </div>
+    </div>
+    <div id="playlist-tracks"></div>
+    <div id="playlist-bar">
+      <button class="pl-bar-btn" id="pl-clear">ОЧИСТ.</button>
+      <span id="pl-count">0 треков</span>
+    </div>
+  </div>
+
+  <!-- My playlists window (hidden by default) -->
+  <div id="mypl-win" class="win-panel hidden">
+    <div class="win-titlebar no-drag">
+      <span class="win-title">МОИ ПЛЕЙЛИСТЫ — Яндекс Музыка</span>
+      <button class="title-btn" id="mypl-close">×</button>
+    </div>
+    <div id="mypl-list"></div>
+  </div>
+
+  <!-- Equalizer window (hidden by default) -->
+  <div id="eq-win" class="win-panel hidden">
+    <div class="win-titlebar no-drag">
+      <span class="win-title">ЭКВАЛАЙЗЕР</span>
+      <div class="title-buttons">
+        <button class="title-btn" id="eq-close" title="Закрыть">×</button>
+      </div>
+    </div>
+    <div id="eq-body">
+      <div id="eq-bands">
+        <div class="eq-band">
+          <input type="range" class="eq-slider" id="eq-preamp" min="-20" max="20" value="0" title="Preamp">
+          <span class="eq-label">PRE</span>
+        </div>
+        <div class="eq-divider"></div>
+        <div class="eq-band" data-hz="60">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">60</span>
+        </div>
+        <div class="eq-band" data-hz="170">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">170</span>
+        </div>
+        <div class="eq-band" data-hz="310">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">310</span>
+        </div>
+        <div class="eq-band" data-hz="600">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">600</span>
+        </div>
+        <div class="eq-band" data-hz="1k">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">1k</span>
+        </div>
+        <div class="eq-band" data-hz="3k">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">3k</span>
+        </div>
+        <div class="eq-band" data-hz="6k">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">6k</span>
+        </div>
+        <div class="eq-band" data-hz="12k">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">12k</span>
+        </div>
+        <div class="eq-band" data-hz="14k">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">14k</span>
+        </div>
+        <div class="eq-band" data-hz="16k">
+          <input type="range" class="eq-slider" min="-20" max="20" value="0">
+          <span class="eq-label">16k</span>
+        </div>
+      </div>
+      <div id="eq-presets">
+        <button class="eq-preset-btn" data-preset="flat">Flat</button>
+        <button class="eq-preset-btn" data-preset="rock">Rock</button>
+        <button class="eq-preset-btn" data-preset="pop">Pop</button>
+        <button class="eq-preset-btn" data-preset="classical">Classic</button>
+        <button class="eq-preset-btn" data-preset="bass">Bass</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #player-screen -->
+
+<!-- SEARCH PANEL (overlay) -->
+<div id="search-panel" class="hidden">
+  <div class="win-panel search-win">
+    <div class="win-titlebar no-drag">
+      <span class="win-title">ПОИСК — Яндекс Музыка</span>
+      <button class="title-btn" id="search-close">×</button>
+    </div>
+    <div id="search-body">
+      <div id="search-input-row">
+        <input type="text" id="search-input" class="win-input" placeholder="Трек, исполнитель, альбом...">
+        <button class="win-btn-big search-go" id="search-go">🔍 НАЙТИ</button>
+      </div>
+      <div id="search-results"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden audio -->
+<audio id="audio" crossorigin="anonymous"></audio>
+
+<script src="app.js"></script>
+</body>
+</html>
