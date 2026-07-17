@@ -215,9 +215,9 @@ function bindPlayerUI() {
 
   // Visualizer mode cycle on canvas click
   $('spectrum').addEventListener('click', () => {
-    const modes = ['bars', 'scope', 'led', 'fall', 'rain']
+    const modes = ['bars', 'scope', 'led', 'phos', 'cubes']
     state.vizMode = modes[(modes.indexOf(state.vizMode) + 1) % modes.length]
-    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', fall: '≋ WATERFALL', rain: 'ｱ MATRIX RAIN' }
+    const labels = { bars: '◼ SPECTRUM', scope: '〜 SCOPE', led: '▦ LED MATRIX', phos: '〜 SCOPE II', cubes: '▣ CUBES' }
     flashMeta(labels[state.vizMode])
   })
 
@@ -925,20 +925,16 @@ function startSpectrumAnimation() {
   const LED_COLS = 28, LED_ROWS = 10
   const ledPeaks = new Array(LED_COLS).fill(0)
 
-  // Matrix rain drops: one per glyph column
-  const RAIN_CW = 10
-  const rainDrops = Array.from({ length: Math.ceil(W / RAIN_CW) }, () => ({
-    y: Math.random() * H,
-    trail: 4 + Math.floor(Math.random() * 6),
-  }))
-  const RAIN_GLYPHS = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ0123456789'
+  // Cube grid: per-column energy history gives a wave rolling through rows
+  const CUBE_COLS = 14, CUBE_ROWS = 4
+  const cubeHist = []
 
   function draw() {
     state.animFrameId = requestAnimationFrame(draw)
     if (state.vizMode === 'scope') drawScope()
     else if (state.vizMode === 'led') drawLed()
-    else if (state.vizMode === 'fall') drawWaterfall()
-    else if (state.vizMode === 'rain') drawRain()
+    else if (state.vizMode === 'phos') drawPhosphor()
+    else if (state.vizMode === 'cubes') drawCubes()
     else drawBars()
   }
 
@@ -1027,43 +1023,90 @@ function startSpectrumAnimation() {
     }
   }
 
-  // Scrolling spectrogram: time runs left, frequency bottom-up
-  function drawWaterfall() {
-    state.analyser.getByteFrequencyData(freqData)
-    ctx.drawImage(canvas, -2, 0)
-    ctx.fillStyle = state.lcdBg
-    ctx.fillRect(W - 2, 0, 2, H)
-    for (let y = 0; y < H; y++) {
-      const bi = Math.floor((1 - y / H) * bufLen * 0.7)
-      const v = freqData[bi] / 255
-      if (v < 0.06) continue
-      ctx.fillStyle = v > 0.75 ? '#ff4444' : v > 0.5 ? '#ffdd00' : state.lcdGreen
-      ctx.globalAlpha = Math.min(1, 0.15 + v * v * 1.3)
-      ctx.fillRect(W - 2, y, 2, 1)
-    }
-    ctx.globalAlpha = 1
-  }
-
-  // Matrix rain: drop speed and brightness follow the band energy
-  function drawRain() {
-    state.analyser.getByteFrequencyData(freqData)
-    // Translucent wipe leaves fading trails
-    ctx.globalAlpha = 0.22
+  // Scope II: phosphor CRT — fading trail, amplitude-coloured beam,
+  // dim mirrored ghost
+  function drawPhosphor() {
+    state.analyser.getByteTimeDomainData(timeData)
+    // Translucent wipe → glowing aftertrail like a real phosphor tube
+    ctx.globalAlpha = 0.16
     ctx.fillStyle = state.lcdBg
     ctx.fillRect(0, 0, W, H)
     ctx.globalAlpha = 1
-    ctx.font = 'bold 10px monospace'
-    for (let c = 0; c < rainDrops.length; c++) {
-      const d = rainDrops[c]
-      const bi = Math.floor(c * (bufLen * 0.7) / rainDrops.length)
-      const v = freqData[bi] / 255
-      d.y += 0.6 + v * 4.5
-      const ch = RAIN_GLYPHS[Math.floor(Math.random() * RAIN_GLYPHS.length)]
-      ctx.fillStyle = v > 0.65 ? '#ffffff' : state.lcdGreen
-      ctx.globalAlpha = 0.4 + v * 0.6
-      ctx.fillText(ch, c * RAIN_CW + 1, d.y)
+
+    const sw = W / timeData.length
+    const SEG = 16 // colour the beam in segments by local amplitude
+    for (let s = 0; s < timeData.length - SEG; s += SEG) {
+      let peak = 0
+      for (let i = s; i <= s + SEG; i++) {
+        peak = Math.max(peak, Math.abs(timeData[i] - 128) / 128)
+      }
+      const color = peak > 0.55 ? '#ff4444' : peak > 0.3 ? '#ffdd00' : state.lcdGreen
+      ctx.strokeStyle = color
+      ctx.shadowColor = color
+      ctx.shadowBlur = 6 + peak * 10
+      ctx.lineWidth = 1.6
+      ctx.beginPath()
+      for (let i = s; i <= s + SEG; i++) {
+        const y = ((timeData[i] / 128) - 1) * 0.82 * H / 2 + H / 2
+        i === s ? ctx.moveTo(i * sw, y) : ctx.lineTo(i * sw, y)
+      }
+      ctx.stroke()
+      // Mirrored ghost, dim
+      ctx.shadowBlur = 0
+      ctx.globalAlpha = 0.22
+      ctx.beginPath()
+      for (let i = s; i <= s + SEG; i++) {
+        const y = H - (((timeData[i] / 128) - 1) * 0.82 * H / 2 + H / 2)
+        i === s ? ctx.moveTo(i * sw, y) : ctx.lineTo(i * sw, y)
+      }
+      ctx.stroke()
       ctx.globalAlpha = 1
-      if (d.y > H + 12) d.y = -Math.random() * H * 0.6
+    }
+    ctx.shadowBlur = 0
+  }
+
+  // Cubes seen from above rising towards the viewer: louder band —
+  // bigger and brighter the cube; history rolls a wave through the rows
+  function drawCubes() {
+    state.analyser.getByteFrequencyData(freqData)
+    const cols = []
+    for (let c = 0; c < CUBE_COLS; c++) {
+      const bs = Math.floor(c * (bufLen * 0.7) / CUBE_COLS)
+      const be = Math.floor((c + 1) * (bufLen * 0.7) / CUBE_COLS)
+      let sum = 0
+      for (let j = bs; j < be; j++) sum += freqData[j]
+      cols.push(sum / (be - bs) / 255)
+    }
+    cubeHist.unshift(cols)
+    if (cubeHist.length > 24) cubeHist.pop()
+
+    ctx.fillStyle = state.lcdBg
+    ctx.fillRect(0, 0, W, H)
+    const cellW = W / CUBE_COLS, cellH = H / CUBE_ROWS
+    for (let r = 0; r < CUBE_ROWS; r++) {
+      // Older frames drive the back rows → the wave rolls towards the viewer
+      const hist = cubeHist[Math.min(cubeHist.length - 1, (CUBE_ROWS - 1 - r) * 6)] || cols
+      for (let c = 0; c < CUBE_COLS; c++) {
+        const v = hist[c]
+        const size = 0.22 + v * 0.72          // rising = growing towards you
+        const sw2 = cellW * size, sh2 = cellH * size
+        const x = c * cellW + (cellW - sw2) / 2
+        const y = r * cellH + (cellH - sh2) / 2
+        // Drop shadow — the deeper the cube, the flatter it looks
+        ctx.fillStyle = '#000000'
+        ctx.globalAlpha = 0.5
+        ctx.fillRect(x + 2, y + 2, sw2, sh2)
+        // Cube top face
+        ctx.fillStyle = v > 0.72 ? '#ff4444' : v > 0.45 ? '#ffdd00' : state.lcdGreen
+        ctx.globalAlpha = 0.25 + v * 0.75
+        ctx.fillRect(x, y, sw2, sh2)
+        // Highlight edge (top-left) fakes the 3D bevel
+        ctx.globalAlpha = Math.min(1, 0.3 + v)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(x, y, sw2, 1)
+        ctx.fillRect(x, y, 1, sh2)
+        ctx.globalAlpha = 1
+      }
     }
   }
 
