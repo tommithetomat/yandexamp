@@ -3,9 +3,7 @@ name: Build & Release
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:
 
-# The default GITHUB_TOKEN is read-only; creating a release needs contents:write
 permissions:
   contents: write
 
@@ -26,10 +24,30 @@ jobs:
 
       - run: npm ci
 
-      # Builds the current platform's target (NSIS on Windows, DMG on macOS)
-      # and uploads artifacts to the GitHub release for this tag
-      - run: npx electron-builder --publish always
+      # Build only — publishing from two jobs creates duplicate draft releases
+      - run: npx electron-builder --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # macOS: skip code signing (no Apple Developer certificate)
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+          if-no-files-found: error
+
+  # Single job publishes ONE release with just the installers
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: installers
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: installers/*
