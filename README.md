@@ -4,6 +4,10 @@
 
 ![Electron](https://img.shields.io/badge/Electron-43-2b2e3a) ![Platform](https://img.shields.io/badge/Windows%20%7C%20macOS-0078d4) ![License](https://img.shields.io/badge/license-MIT-green)
 
+<p align="center">
+  <img src="docs/preview.png" alt="YandexAmp — скриншот плеера" width="550">
+</p>
+
 ## Возможности
 
 - 🎨 Классический интерфейс Winamp: LCD-дисплей, спектроанализатор, эквалайзер, плейлист
