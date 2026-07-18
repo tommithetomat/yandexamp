@@ -121,20 +121,19 @@ function runDemoMode() {
   $('login-screen').classList.add('hidden')
   $('player-screen').classList.remove('hidden')
   state.playlist = [
-    { id: 'd1', title: 'Кукла колдуна',        artist: 'Король и Шут',  album: '', duration: 213000 },
-    { id: 'd2', title: 'Трава у дома',          artist: 'Земляне',       album: '', duration: 262000 },
-    { id: 'd3', title: 'Группа крови',          artist: 'Кино',          album: '', duration: 283000 },
-    { id: 'd4', title: 'Владивосток 2000',      artist: 'Мумий Тролль',  album: '', duration: 258000 },
-    { id: 'd5', title: 'Выхода нет',            artist: 'Сплин',         album: '', duration: 217000 },
-    { id: 'd6', title: 'Всё идёт по плану',     artist: 'Гражданская оборона', album: '', duration: 240000 },
-    { id: 'd7', title: 'Матушка-земля',         artist: 'Татьяна Куртукова', album: '', duration: 180000 },
+    { id: 'd1', title: 'Корабль Дураков',       artist: 'Проект Увечье', album: '', duration: 224000 },
+    { id: 'd2', title: 'Кукла колдуна',         artist: 'Король и Шут',  album: '', duration: 213000 },
+    { id: 'd3', title: 'Ангел',                 artist: 'Anacondaz',     album: '', duration: 235000 },
+    { id: 'd4', title: 'Журавли',               artist: 'Mujuice',       album: '', duration: 268000 },
+    { id: 'd5', title: 'Break Stuff',           artist: 'Limp Bizkit',   album: '', duration: 166000 },
+    { id: 'd6', title: 'Из России с любовью',   artist: 'RAM, TMNV',     album: '', duration: 192000 },
   ]
-  state.currentIndex = 2
-  state.likedIds = new Set(['d3', 'd7'])
+  state.currentIndex = 0
+  state.likedIds = new Set(['d1', 'd4'])
   renderPlaylist()
   updatePlCount()
-  highlightPlaylistItem(2)
-  setTrackTitle('Кино — Группа крови')
+  highlightPlaylistItem(0)
+  setTrackTitle('Проект Увечье — Корабль Дураков')
   setPlayStatus('▶')
   updateLikeUI()
   updateSeekbarUI(0.37)
