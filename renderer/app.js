@@ -663,6 +663,8 @@ function renderSearchResults(tracks) {
   $('search-results').querySelectorAll('.search-track').forEach(el => {
     el.addEventListener('click', (e) => {
       if (e.target.classList.contains('search-add-btn')) {
+        const existing = state.playlist.findIndex(t => t.id === el.dataset.id)
+        if (existing !== -1) { flashMeta('уже в плейлисте'); return }
         addTrackToPlaylist({
           id: el.dataset.id,
           title: el.dataset.title,
@@ -680,8 +682,16 @@ function renderSearchResults(tracks) {
           duration: Number(el.dataset.dur),
           coverUri: el.dataset.cover,
         }
-        addTrackToPlaylist(track)
-        playTrackByIndex(state.playlist.length - 1)
+        // If the track is already in the playlist, jump to it instead of duplicating
+        const existing = state.playlist.findIndex(t => t.id === track.id)
+        if (existing !== -1) {
+          rememberCurrent()
+          playTrackByIndex(existing)
+        } else {
+          addTrackToPlaylist(track)
+          rememberCurrent()
+          playTrackByIndex(state.playlist.length - 1)
+        }
         closeSearch()
       }
     })
