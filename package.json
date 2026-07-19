@@ -1,6 +1,6 @@
 {
   "name": "yandexamp",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Десктопный плеер для Яндекс Музыки в стиле классического Winamp 2.x",
   "main": "main.js",
   "scripts": {
