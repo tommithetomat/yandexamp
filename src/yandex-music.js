@@ -264,6 +264,110 @@ class YandexMusicService {
     return this._apiPostJson(`/rotor/station/user:onyourwave/feedback${batch}`, body)
   }
 
+  // ===== ROTOR STATIONS (genres, moods, epochs) =====
+
+  // Flat list of available radio stations: {id, title}
+  async getStationsList() {
+    const data = await this._apiGet('/rotor/stations/list')
+    return (data.result || []).map(s => ({
+      id:    `${s.station?.id?.type}:${s.station?.id?.tag}`,
+      title: s.station?.name || 'Станция',
+    })).filter(s => s.id.includes(':') && !s.id.startsWith('undefined'))
+  }
+
+  // Tracks from any rotor station id ("genre:rock", "track:123", ...)
+  async getStationTracks(stationId) {
+    const data = await this._apiGet(`/rotor/station/${stationId}/tracks?settings2=true`)
+    const seq = data.result?.sequence || []
+    const tracks = seq.filter(s => s.track).map(s => this._mapTrack(s.track))
+    return { title: data.result?.station?.name || 'Радио', tracks }
+  }
+
+  // "Radio from track" — endless stream similar to the given track
+  async getTrackRadio(trackId) {
+    return this.getStationTracks(`track:${trackId}`)
+  }
+
+  // ===== CHARTS / NEW RELEASES =====
+
+  async getChart() {
+    const data = await this._apiGet('/landing3/chart')
+    const list = data.result?.chart?.tracks || data.result?.chart?.chart?.tracks || []
+    const tracks = list.filter(t => t.track && !t.track.error).map(t => this._mapTrack(t.track || t))
+    return { title: 'Чарт', tracks }
+  }
+
+  async getNewReleases() {
+    const data = await this._apiGet('/landing3?blocks=new-releases')
+    let albumIds = []
+    for (const block of (data.result?.blocks || [])) {
+      for (const e of (block.entities || [])) albumIds.push(e.id || e.data?.id)
+    }
+    albumIds = albumIds.filter(Boolean).slice(0, 30)
+    // Resolve album ids to their tracks
+    const tracks = []
+    for (const id of albumIds) {
+      try {
+        const a = await this._apiGet(`/albums/${id}/with-tracks`)
+        const vols = a.result?.volumes || []
+        const first = vols[0]?.[0]
+        if (first) tracks.push(this._mapTrack(first))
+      } catch (_) {}
+    }
+    return { title: 'Новинки', tracks }
+  }
+
+  // ===== HISTORY =====
+
+  async getPlayHistory() {
+    if (!this.uid) await this.initSession()
+    const data = await this._apiGet(`/users/${this.uid}/contexts/tracks`).catch(() => null)
+      || await this._apiGet('/landing3?blocks=play_contexts').catch(() => null)
+    // Different accounts expose history differently; collect any track ids we find
+    const ids = new Set()
+    const scan = (obj) => {
+      if (!obj || typeof obj !== 'object') return
+      if (obj.trackId) ids.add(String(obj.trackId))
+      if (obj.id && obj.type === 'track') ids.add(String(obj.id))
+      for (const k in obj) scan(obj[k])
+    }
+    scan(data)
+    const idList = [...ids].slice(0, 100)
+    if (!idList.length) return { title: 'История', tracks: [] }
+    const full = await this._apiPost('/tracks', { 'track-ids': idList.join(',') })
+    const tracks = (full.result || []).filter(t => t && !t.error).map(t => this._mapTrack(t))
+    return { title: 'История', tracks }
+  }
+
+  // ===== ARTIST =====
+
+  async getArtist(artistId) {
+    const data = await this._apiGet(`/artists/${artistId}/brief-info`)
+    const r = data.result || {}
+    const popular = (r.popularTracks || []).filter(t => t && !t.error).map(t => this._mapTrack(t))
+    const albums = (r.albums || []).map(a => ({
+      id:       String(a.id),
+      title:    a.title || 'Альбом',
+      year:     a.year || '',
+      coverUri: a.coverUri || null,
+    }))
+    return {
+      name:   r.artist?.name || 'Исполнитель',
+      albums,
+      popular,
+    }
+  }
+
+  async getAlbumTracks(albumId) {
+    const data = await this._apiGet(`/albums/${albumId}/with-tracks`)
+    const r = data.result || {}
+    const tracks = []
+    for (const vol of (r.volumes || [])) {
+      for (const t of vol) if (t && !t.error) tracks.push(this._mapTrack(t))
+    }
+    return { title: r.title || 'Альбом', tracks }
+  }
+
   setToken(token, uid = null) {
     this.token = token
     if (uid) this.uid = uid
@@ -306,13 +410,15 @@ class YandexMusicService {
   // ===== PRIVATE =====
 
   _mapTrack(tr) {
+    const artists = tr.artists || []
     return {
-      id:       String(tr.id),
-      title:    tr.title || 'Unknown',
-      artist:   (tr.artists || []).map(a => a.name).join(', ') || 'Unknown',
-      album:    tr.albums?.[0]?.title || '',
-      duration: tr.durationMs || 0,
-      coverUri: tr.coverUri || null,
+      id:        String(tr.id),
+      title:     tr.title || 'Unknown',
+      artist:    artists.map(a => a.name).join(', ') || 'Unknown',
+      artistId:  artists[0]?.id != null ? String(artists[0].id) : null,
+      album:     tr.albums?.[0]?.title || '',
+      duration:  tr.durationMs || 0,
+      coverUri:  tr.coverUri || null,
     }
   }
 

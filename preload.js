@@ -34,5 +34,13 @@ contextBridge.exposeInMainWorld('api', {
     waveFeedback: (type, trackId, playedSeconds) => ipcRenderer.invoke('yandex:waveFeedback', { type, trackId, playedSeconds }),
     getPlaylistTracks: (uid, kind) => ipcRenderer.invoke('yandex:getPlaylistTracks', { uid, kind }),
     getLyrics: (trackId) => ipcRenderer.invoke('yandex:getLyrics', { trackId }),
+    getStationsList: () => ipcRenderer.invoke('yandex:getStationsList'),
+    getStationTracks: (stationId) => ipcRenderer.invoke('yandex:getStationTracks', { stationId }),
+    getTrackRadio: (trackId) => ipcRenderer.invoke('yandex:getTrackRadio', { trackId }),
+    getChart: () => ipcRenderer.invoke('yandex:getChart'),
+    getNewReleases: () => ipcRenderer.invoke('yandex:getNewReleases'),
+    getPlayHistory: () => ipcRenderer.invoke('yandex:getPlayHistory'),
+    getArtist: (artistId) => ipcRenderer.invoke('yandex:getArtist', { artistId }),
+    getAlbumTracks: (albumId) => ipcRenderer.invoke('yandex:getAlbumTracks', { albumId }),
   },
 })

@@ -65,11 +65,22 @@
       <span class="win-title">YANDEXAMP</span>
       <div class="title-buttons">
         <button class="title-btn hidden" id="btn-update" title="Доступна новая версия — открыть страницу загрузки">NEW</button>
+        <button class="title-btn" id="btn-mini" title="Мини-режим">◱</button>
         <button class="title-btn" id="btn-pin" title="Поверх всех окон">PIN</button>
         <button class="title-btn" id="btn-skin" title="Сменить скин">CLR</button>
         <button class="title-btn" id="btn-minimize" title="Свернуть">_</button>
         <button class="title-btn" id="btn-close" title="Закрыть">×</button>
       </div>
+    </div>
+
+    <!-- Mini strip (compact mode only) -->
+    <div id="mini-strip">
+      <button class="mini-btn" id="mini-prev" title="Предыдущий">⏮</button>
+      <button class="mini-btn" id="mini-play" title="Играть/пауза">⏵</button>
+      <button class="mini-btn" id="mini-next" title="Следующий">⏭</button>
+      <div id="mini-title-wrap"><span id="mini-title">YandexAmp</span></div>
+      <span id="mini-time">00:00</span>
+      <button class="mini-btn" id="mini-expand" title="Развернуть">◲</button>
     </div>
 
     <!-- Display -->
@@ -249,11 +260,14 @@
     </div>
   </div>
   <div id="lyrics-body">Включите трек — текст появится здесь</div>
+  <div id="artist-body" class="hidden"></div>
 </div>
 
 <!-- Custom context menu for playlist rows -->
 <div id="ctx-menu" class="hidden">
   <div class="ctx-item" data-act="next">⏭ Поставить следующим</div>
+  <div class="ctx-item" data-act="radio">📻 Радио по треку</div>
+  <div class="ctx-item" data-act="artist">👤 Об исполнителе</div>
   <div class="ctx-item" data-act="del">✖ Удалить из плейлиста</div>
 </div>
 

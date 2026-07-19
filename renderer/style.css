@@ -285,6 +285,73 @@ body { display: flex; align-items: flex-start; }
   scrollbar-color: #3a3a3a #111;
 }
 
+/* ===== MINI MODE ===== */
+#mini-strip { display: none; }
+/* Content is fixed at 550px — shrink it to the mini window or the right
+   side (time + expand button) gets clipped off the narrow window */
+body.mini #player-screen,
+body.mini #winamp { width: 300px; }
+body.mini #display,
+body.mini #seekbar-wrap,
+body.mini #controls,
+body.mini #playlist-win,
+body.mini #mypl-win,
+body.mini #eq-win,
+body.mini #dock-win { display: none; }
+body.mini #mini-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--lcd-bg);
+  border: 2px solid;
+  border-color: var(--bevel-lo) var(--bevel-hi) var(--bevel-hi) var(--bevel-lo);
+  margin: 4px 6px;
+  padding: 4px 6px;
+  height: 26px;
+}
+.mini-btn {
+  background: transparent;
+  border: none;
+  color: var(--lcd-green);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.mini-btn:hover { text-shadow: 0 0 6px var(--lcd-green); }
+#mini-title-wrap { flex: 1; overflow: hidden; white-space: nowrap; }
+#mini-title {
+  color: var(--lcd-green);
+  font-size: 11px;
+  text-shadow: 0 0 5px var(--lcd-green);
+}
+#mini-time {
+  color: var(--lcd-green);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 0 5px var(--lcd-green);
+}
+#mini-expand { margin-left: 2px; }
+
+/* Artist page in dock */
+.art-h {
+  font-size: 10px; font-weight: bold; letter-spacing: 1px;
+  color: var(--accent); margin: 8px 0 4px; text-transform: uppercase;
+}
+.art-play-all {
+  display: block; width: 100%; margin-bottom: 6px; padding: 4px;
+  background: var(--bg-dark); color: var(--accent);
+  border: 1px solid var(--accent); cursor: pointer; font-size: 11px;
+}
+.art-track, .art-album {
+  display: flex; justify-content: space-between; gap: 8px;
+  padding: 4px 6px; font-size: 11px; cursor: pointer;
+  border-bottom: 1px solid #1a1a1a; color: var(--text);
+}
+.art-track:hover, .art-album:hover { background: #1e1e1e; }
+.art-dur { color: var(--text-dim); font-size: 10px; }
+
 /* Playlist resize handle */
 #pl-resize {
   height: 7px;

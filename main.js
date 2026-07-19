@@ -443,6 +443,23 @@ ipcMain.handle('yandex:getPlaylistTracks', async (_, { uid, kind }) => {
   }
 })
 
+// Generic helper: wrap a service call as { success, data }
+function handleData(channel, fn) {
+  ipcMain.handle(channel, async (_, arg) => {
+    try { return { success: true, data: await fn(arg) } }
+    catch (err) { return { success: false, error: err.message || String(err) } }
+  })
+}
+
+handleData('yandex:getStationsList', () => yandex.getStationsList())
+handleData('yandex:getStationTracks', ({ stationId }) => yandex.getStationTracks(stationId))
+handleData('yandex:getTrackRadio', ({ trackId }) => yandex.getTrackRadio(trackId))
+handleData('yandex:getChart', () => yandex.getChart())
+handleData('yandex:getNewReleases', () => yandex.getNewReleases())
+handleData('yandex:getPlayHistory', () => yandex.getPlayHistory())
+handleData('yandex:getArtist', ({ artistId }) => yandex.getArtist(artistId))
+handleData('yandex:getAlbumTracks', ({ albumId }) => yandex.getAlbumTracks(albumId))
+
 ipcMain.handle('yandex:getLyrics', async (_, { trackId }) => {
   try {
     const data = await yandex.getLyrics(trackId)

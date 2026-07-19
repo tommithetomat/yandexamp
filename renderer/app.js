@@ -304,25 +304,49 @@ function initPanelReorder() {
   })
 }
 
-// ===== LYRICS DOCK =====
+// ===== MINI MODE =====
+function setMiniMode(on) {
+  document.body.classList.toggle('mini', on)
+  if (on) { setDockOpen(false); showDockMode('lyrics') }
+  localStorage.setItem('yamp-mini', on ? '1' : '0')
+  // Mini has a fixed narrow width; restore full width on exit
+  window.api.window.setWidth(on ? 300 : 550)
+  updateWindowHeight()
+}
+
+// ◲ expand button lives inside the mini strip (titlebar buttons don't fit at 300px)
+
+// ===== SIDE DOCK (lyrics / artist) =====
 const DOCK_WIDTH = 300
 let _dockVisible = false
+let _dockMode = 'lyrics'  // 'lyrics' | 'artist'
 let _lyricsForId = null
 
-function toggleDock() {
-  _dockVisible = !_dockVisible
-  $('dock-win').classList.toggle('hidden', !_dockVisible)
-  $('btn-txt').classList.toggle('active', _dockVisible)
-  window.api.window.setWidth(550 + (_dockVisible ? DOCK_WIDTH : 0))
+function setDockOpen(open) {
+  _dockVisible = open
+  $('dock-win').classList.toggle('hidden', !open)
+  window.api.window.setWidth(550 + (open ? DOCK_WIDTH : 0))
   updateWindowHeight() // sizes the dock to the player column
-  if (_dockVisible) {
-    const t = state.playlist[state.currentIndex]
-    if (t) loadLyricsFor(t)
-  }
+}
+
+function showDockMode(mode) {
+  _dockMode = mode
+  $('lyrics-body').classList.toggle('hidden', mode !== 'lyrics')
+  $('artist-body').classList.toggle('hidden', mode !== 'artist')
+  $('btn-txt').classList.toggle('active', _dockVisible && mode === 'lyrics')
+}
+
+// TXT button — toggles the lyrics view
+function toggleDock() {
+  if (_dockVisible && _dockMode === 'lyrics') { setDockOpen(false); showDockMode('lyrics'); return }
+  setDockOpen(true)
+  showDockMode('lyrics')
+  const t = state.playlist[state.currentIndex]
+  if (t) loadLyricsFor(t)
 }
 
 async function loadLyricsFor(track) {
-  if (_lyricsForId === track.id) return
+  if (_lyricsForId === track.id && _dockMode === 'lyrics') return
   _lyricsForId = track.id
   $('dock-title').textContent = 'ТЕКСТ — ' + track.title.toUpperCase()
   $('lyrics-body').textContent = 'Загружаем текст...'
@@ -331,6 +355,51 @@ async function loadLyricsFor(track) {
   $('lyrics-body').textContent = res.success && res.data.text
     ? res.data.text
     : 'Текст для этого трека не найден'
+}
+
+// Opens the artist page for a track's primary artist in the dock
+async function openArtist(track) {
+  if (!track || !track.artistId) { flashMeta('⚠ нет данных об исполнителе'); return }
+  setDockOpen(true)
+  showDockMode('artist')
+  $('dock-title').textContent = 'ИСПОЛНИТЕЛЬ'
+  $('artist-body').innerHTML = '<div class="mypl-msg">Загружаем...</div>'
+  const res = await window.api.yandex.getArtist(track.artistId)
+  if (!res.success) { $('artist-body').innerHTML = `<div class="mypl-msg">Ошибка: ${esc(res.error)}</div>`; return }
+  const a = res.data
+  $('dock-title').textContent = a.name.toUpperCase()
+  let html = ''
+  if (a.popular.length) {
+    html += '<div class="art-h">Популярное</div>'
+    html += `<button class="art-play-all">▶ Слушать популярное</button>`
+    html += a.popular.slice(0, 15).map((t, i) =>
+      `<div class="art-track" data-i="${i}">${esc(t.title)}<span class="art-dur">${formatDuration(t.duration)}</span></div>`
+    ).join('')
+  }
+  if (a.albums.length) {
+    html += '<div class="art-h">Альбомы</div>'
+    html += a.albums.slice(0, 30).map(al =>
+      `<div class="art-album" data-album="${esc(al.id)}">${esc(al.title)}${al.year ? ' <span class="art-dur">' + al.year + '</span>' : ''}</div>`
+    ).join('')
+  }
+  $('artist-body').innerHTML = html || '<div class="mypl-msg">Пусто</div>'
+
+  const playAll = $('artist-body').querySelector('.art-play-all')
+  if (playAll) playAll.addEventListener('click', () => loadTracksAsPlaylist(a.popular, a.name, false))
+  $('artist-body').querySelectorAll('.art-track').forEach(el => {
+    el.addEventListener('click', () => {
+      loadTracksAsPlaylist(a.popular, a.name, false)
+      playTrackByIndex(Number(el.dataset.i))
+    })
+  })
+  $('artist-body').querySelectorAll('.art-album').forEach(el => {
+    el.addEventListener('click', async () => {
+      el.textContent = 'Загружаем...'
+      const r = await window.api.yandex.getAlbumTracks(el.dataset.album)
+      if (r.success && r.data.tracks.length) loadTracksAsPlaylist(r.data.tracks, r.data.title, false)
+      else flashMeta('⚠ альбом пуст')
+    })
+  })
 }
 
 // ===== PERSISTED PLAYER STATE =====
@@ -422,9 +491,16 @@ function bindPlayerUI() {
   $('btn-next').addEventListener('click', userSkip)
   $('btn-search').addEventListener('click', openSearch)
 
+  // Mini (compact) mode
+  $('btn-mini').addEventListener('click', () => setMiniMode(!document.body.classList.contains('mini')))
+  $('mini-prev').addEventListener('click', playPrev)
+  $('mini-play').addEventListener('click', playPause)
+  $('mini-next').addEventListener('click', userSkip)
+  $('mini-expand').addEventListener('click', () => setMiniMode(false))
+
   // Lyrics dock
   $('btn-txt').addEventListener('click', toggleDock)
-  $('dock-close').addEventListener('click', toggleDock)
+  $('dock-close').addEventListener('click', () => { setDockOpen(false); showDockMode('lyrics') })
 
   // Pin window on top of everything
   $('btn-pin').addEventListener('click', () => {
@@ -722,46 +798,80 @@ async function loadUserPlaylists() {
     ).join('')
   }
 
+  html += '<div class="mypl-header">ОТКРЫТЬ</div>'
+  html += item('📈 Чарт Яндекса', 'топ', 'data-type="chart"')
+  html += item('🆕 Новинки', 'релизы', 'data-type="new"')
+  html += item('🕘 История', 'недавнее', 'data-type="history"')
+  html += '<div id="stations-slot"><div class="mypl-msg">Загружаем станции...</div></div>'
+
   $('mypl-list').innerHTML = html
 
-  $('mypl-list').querySelectorAll('.mypl-load-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      btn.textContent = '...'
-      btn.disabled = true
-      const isWave = btn.dataset.type === 'wave'
-      let res2
-      if (isWave) {
-        // Apply mood/diversity/language settings before starting the wave
-        const settings = {
-          moodEnergy: $('wave-mood').value,
-          diversity:  $('wave-div').value,
-          language:   $('wave-lang').value,
-        }
-        localStorage.setItem('yamp-wave', JSON.stringify(settings))
-        const sRes = await window.api.yandex.setWaveSettings(settings)
-        if (!sRes.success) flashMeta('⚠ настройки волны: ' + (sRes.error || 'ошибка'))
-        res2 = await window.api.yandex.getWaveTracks()
-      }
-      else if (btn.dataset.type === 'liked') res2 = await window.api.yandex.getLikedTracks()
-      else res2 = await window.api.yandex.getPlaylistTracks(btn.dataset.uid, Number(btn.dataset.kind))
-      btn.textContent = '▶ ЗАГРУЗИТЬ'
-      btn.disabled = false
-      if (!res2.success) { flashMeta('⚠ ' + (res2.error || 'Ошибка загрузки')); return }
-      if (!res2.data.tracks.length) { flashMeta('⚠ Плейлист пуст'); return }
-      state.waveMode = isWave
-      // Replace the current playlist with the loaded one
-      state.playlist = []
-      state.currentIndex = -1
-      state.history = []
-      res2.data.tracks.forEach(t => addTrackToPlaylist(t))
-      flashMeta(`✓ ${res2.data.title}`)
-      if (state.playlist.length) playTrackByIndex(0)
-      state.isMyPlVisible = false
-      $('mypl-win').classList.add('hidden')
-      $('btn-my').classList.remove('active')
-      updateWindowHeight()
-    })
+  // Genre / mood / epoch stations load asynchronously into their slot
+  window.api.yandex.getStationsList().then(res => {
+    const slot = $('stations-slot')
+    if (!slot) return
+    if (!res.success || !res.data.length) { slot.innerHTML = ''; return }
+    slot.innerHTML = '<div class="mypl-header">СТАНЦИИ</div>' + res.data.map(s =>
+      item('📻 ' + s.title, '', `data-type="station" data-station="${esc(s.id)}"`)
+    ).join('')
+    bindMyplButtons()
   })
+
+  bindMyplButtons()
+}
+
+// (Re)wires the ЗАГРУЗИТЬ buttons — called again after async sections arrive
+function bindMyplButtons() {
+  $('mypl-list').querySelectorAll('.mypl-load-btn').forEach(btn => {
+    if (btn._bound) return
+    btn._bound = true
+    btn.addEventListener('click', () => loadMyplSource(btn))
+  })
+}
+
+async function loadMyplSource(btn) {
+  const type = btn.dataset.type
+  btn.textContent = '...'
+  btn.disabled = true
+  const isWave = type === 'wave'
+  let res2
+  if (isWave) {
+    const settings = {
+      moodEnergy: $('wave-mood').value,
+      diversity:  $('wave-div').value,
+      language:   $('wave-lang').value,
+    }
+    localStorage.setItem('yamp-wave', JSON.stringify(settings))
+    const sRes = await window.api.yandex.setWaveSettings(settings)
+    if (!sRes.success) flashMeta('⚠ настройки волны: ' + (sRes.error || 'ошибка'))
+    res2 = await window.api.yandex.getWaveTracks()
+  }
+  else if (type === 'liked')   res2 = await window.api.yandex.getLikedTracks()
+  else if (type === 'chart')   res2 = await window.api.yandex.getChart()
+  else if (type === 'new')     res2 = await window.api.yandex.getNewReleases()
+  else if (type === 'history') res2 = await window.api.yandex.getPlayHistory()
+  else if (type === 'station') res2 = await window.api.yandex.getStationTracks(btn.dataset.station)
+  else res2 = await window.api.yandex.getPlaylistTracks(btn.dataset.uid, Number(btn.dataset.kind))
+  btn.textContent = '▶ ЗАГРУЗИТЬ'
+  btn.disabled = false
+  if (!res2.success) { flashMeta('⚠ ' + (res2.error || 'Ошибка загрузки')); return }
+  if (!res2.data.tracks.length) { flashMeta('⚠ Пусто'); return }
+  loadTracksAsPlaylist(res2.data.tracks, res2.data.title, isWave)
+  state.isMyPlVisible = false
+  $('mypl-win').classList.add('hidden')
+  $('btn-my').classList.remove('active')
+  updateWindowHeight()
+}
+
+// Replaces the whole playlist with a loaded set and starts playback
+function loadTracksAsPlaylist(tracks, title, isWave = false) {
+  state.waveMode = isWave
+  state.playlist = []
+  state.currentIndex = -1
+  state.history = []
+  tracks.forEach(t => addTrackToPlaylist(t))
+  flashMeta(`✓ ${title}`)
+  if (state.playlist.length) playTrackByIndex(0)
 }
 
 // ===== SEARCH UI =====
@@ -971,7 +1081,7 @@ async function playTrackByIndex(index) {
   updateLikeUI()
   setCoverArt(track.coverUri)
   updateMediaMetadata(track)
-  if (_dockVisible) loadLyricsFor(track)
+  if (_dockVisible && _dockMode === 'lyrics') loadLyricsFor(track)
 
   const res = await window.api.yandex.getTrackUrl(track.id)
   if (seq !== _playSeq) return // another track was requested meanwhile
@@ -1211,6 +1321,15 @@ function removeTrack(i) {
   flashMeta(`✖ ${t.title} удалён`)
 }
 
+async function startTrackRadio(i) {
+  const t = state.playlist[i]
+  if (!t) return
+  flashMeta('📻 радио по треку...')
+  const res = await window.api.yandex.getTrackRadio(t.id)
+  if (!res.success || !res.data.tracks.length) { flashMeta('⚠ радио недоступно'); return }
+  loadTracksAsPlaylist(res.data.tracks, 'Радио: ' + t.title, false)
+}
+
 function queueTrackNext(i) {
   if (i === state.currentIndex) return
   const target = state.currentIndex === -1 ? 0
@@ -1235,8 +1354,11 @@ function bindCtxMenu() {
     item.addEventListener('click', () => {
       $('ctx-menu').classList.add('hidden')
       if (_ctxIdx === null) return
-      if (item.dataset.act === 'next') queueTrackNext(_ctxIdx)
-      else if (item.dataset.act === 'del') removeTrack(_ctxIdx)
+      const act = item.dataset.act
+      if (act === 'next') queueTrackNext(_ctxIdx)
+      else if (act === 'del') removeTrack(_ctxIdx)
+      else if (act === 'radio') startTrackRadio(_ctxIdx)
+      else if (act === 'artist') openArtist(state.playlist[_ctxIdx])
       _ctxIdx = null
     })
   })
@@ -1284,10 +1406,12 @@ function setTrackTitle(text) {
   const el = $('track-title-text')
   el.classList.remove('scrolling')
   el.textContent = text
+  $('mini-title').textContent = text
 }
 
 function setPlayStatus(icon) {
   $('play-indicator').textContent = icon
+  $('mini-play').textContent = icon === '▶' ? '⏸' : '⏵'
 }
 
 function startScrollingTitle() {
@@ -1317,6 +1441,7 @@ function updateTimeDisplay() {
   const s = Math.floor(cur % 60)
   $('time-m').textContent = String(m).padStart(2, '0')
   $('time-s').textContent = String(s).padStart(2, '0')
+  $('mini-time').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 
   if (!state.seekDragging) {
     updateSeekbarUI(cur / audio.duration)
