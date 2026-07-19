@@ -3,7 +3,9 @@
 // Running in a plain browser (demo / GitHub Pages) — stub the Electron bridge
 if (!window.api) {
   window.api = {
-    window: { minimize() {}, close() {}, setHeight() {}, setPin() {} },
+    window: { minimize() {}, close() {}, setHeight() {}, setWidth() {}, setPin() {} },
+    media: { onCmd() {} },
+    app: { async checkUpdate() { return { newer: false } }, openReleases() {} },
     yandex: new Proxy({}, {
       get: () => async () => ({ success: false, error: 'Демо-режим: API недоступно' }),
     }),
@@ -35,17 +37,19 @@ const state = {
   history: [],          // indexes of previously played tracks (for prev in shuffle)
   // Canvas colors — updated by applyTheme()
   lcdBg: '#0b1a0b', lcdGreen: '#33ff66', lcdDim: '#0d3318', lcdMid: '#1aaa44',
+  lcdWarm: '#ffdd00', lcdHot: '#ff4444',
 }
 
 // ===== THEMES =====
 const THEME_CYCLE = ['classic', 'steel', 'amber', 'yandex', 'blood']
 const THEME_LABELS = { classic: 'GRN', steel: 'BLU', amber: 'AMB', yandex: 'YDX', blood: 'RED' }
+// lcdWarm/lcdHot — visualizer mid/peak colors, picked to contrast the base
 const THEME_COLORS = {
-  classic: { lcdBg: '#0b1a0b', lcdGreen: '#33ff66', lcdDim: '#0d3318', lcdMid: '#1aaa44' },
-  steel:   { lcdBg: '#001428', lcdGreen: '#55ccff', lcdDim: '#003360', lcdMid: '#1a5080' },
-  amber:   { lcdBg: '#1a0d00', lcdGreen: '#ff9900', lcdDim: '#4a2200', lcdMid: '#804400' },
-  yandex:  { lcdBg: '#1a1200', lcdGreen: '#ffdb4d', lcdDim: '#4a3800', lcdMid: '#806600' },
-  blood:   { lcdBg: '#1a0005', lcdGreen: '#ff3355', lcdDim: '#4a0015', lcdMid: '#800020' },
+  classic: { lcdBg: '#0b1a0b', lcdGreen: '#33ff66', lcdDim: '#0d3318', lcdMid: '#1aaa44', lcdWarm: '#ffdd00', lcdHot: '#ff4444' },
+  steel:   { lcdBg: '#001428', lcdGreen: '#55ccff', lcdDim: '#003360', lcdMid: '#1a5080', lcdWarm: '#ffdd00', lcdHot: '#ff5566' },
+  amber:   { lcdBg: '#1a0d00', lcdGreen: '#ff9900', lcdDim: '#4a2200', lcdMid: '#804400', lcdWarm: '#ffffff', lcdHot: '#55bbff' },
+  yandex:  { lcdBg: '#1a1200', lcdGreen: '#ffdb4d', lcdDim: '#4a3800', lcdMid: '#806600', lcdWarm: '#ffffff', lcdHot: '#ff3355' },
+  blood:   { lcdBg: '#1a0005', lcdGreen: '#ff3355', lcdDim: '#4a0015', lcdMid: '#800020', lcdWarm: '#ffdd00', lcdHot: '#ffffff' },
 }
 
 function applyTheme(name) {
@@ -53,6 +57,7 @@ function applyTheme(name) {
   const c = THEME_COLORS[name] || THEME_COLORS.classic
   state.lcdBg = c.lcdBg; state.lcdGreen = c.lcdGreen
   state.lcdDim = c.lcdDim; state.lcdMid = c.lcdMid
+  state.lcdWarm = c.lcdWarm; state.lcdHot = c.lcdHot
   localStorage.setItem('yamp-theme', name)
   const btn = $('btn-skin')
   if (btn) btn.textContent = THEME_LABELS[name] || 'SKN'
@@ -102,6 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
   bindSearchUI()
   bindEqUI()
   bindSeekbar()
+  setupMediaSession()
+  initPanelReorder()
   startSpectrumIdle()
 
   // Demo mode for screenshots / GitHub Pages: ?demo shows the player with mock data
@@ -139,6 +146,9 @@ function runDemoMode() {
   updateSeekbarUI(0.37)
   $('time-m').textContent = '01'
   $('time-s').textContent = '45'
+  // Extra demo states for layout screenshots
+  const q = new URLSearchParams(location.search)
+  if (q.has('dock')) toggleDock()
 }
 
 // ===== LOGIN =====
@@ -231,6 +241,96 @@ function enterPlayer() {
   })
   setupAudio()
   loadLikedIds()
+  checkForUpdate()
+}
+
+// Once per launch: if GitHub has a newer release, show the NEW button
+let _updateChecked = false
+async function checkForUpdate() {
+  if (_updateChecked) return
+  _updateChecked = true
+  const res = await window.api.app.checkUpdate()
+  if (!res.newer) return
+  const btn = $('btn-update')
+  btn.classList.remove('hidden')
+  btn.title = `Доступна версия ${res.latest} — открыть страницу загрузки`
+  btn.onclick = () => window.api.app.openReleases(res.url)
+  flashMeta(`⬆ доступна версия ${res.latest}`)
+}
+
+// ===== PANEL REORDER =====
+// The stacked windows (playlist / my playlists / EQ) can be rearranged by
+// dragging their titlebars; they always snap into the column, no gaps
+const REORDER_PANELS = ['playlist-win', 'mypl-win', 'eq-win']
+
+function initPanelReorder() {
+  const screen = $('player-screen')
+  // Restore saved order
+  try {
+    const saved = JSON.parse(localStorage.getItem('yamp-panels') || 'null')
+    if (Array.isArray(saved)) {
+      saved.filter(id => REORDER_PANELS.includes(id)).forEach(id => screen.appendChild($(id)))
+    }
+  } catch (_) {}
+
+  REORDER_PANELS.forEach(id => {
+    const panel = $(id)
+    const bar = panel.querySelector('.win-titlebar')
+    if (!bar) return
+    bar.style.cursor = 'grab'
+    bar.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.title-btn')) return // buttons keep working
+      e.preventDefault()
+      panel.classList.add('panel-dragging')
+      const onMove = (ev) => {
+        const under = document.elementFromPoint(ev.clientX, ev.clientY)
+        const other = under && under.closest('.win-panel')
+        if (!other || other === panel || !REORDER_PANELS.includes(other.id)) return
+        const r = other.getBoundingClientRect()
+        if (ev.clientY < r.top + r.height / 2) screen.insertBefore(panel, other)
+        else screen.insertBefore(panel, other.nextSibling)
+      }
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+        panel.classList.remove('panel-dragging')
+        const order = [...screen.querySelectorAll('.win-panel')]
+          .map(p => p.id).filter(pid => REORDER_PANELS.includes(pid))
+        localStorage.setItem('yamp-panels', JSON.stringify(order))
+      }
+      document.addEventListener('mousemove', onMove)
+      document.addEventListener('mouseup', onUp)
+    })
+  })
+}
+
+// ===== LYRICS DOCK =====
+const DOCK_WIDTH = 300
+let _dockVisible = false
+let _lyricsForId = null
+
+function toggleDock() {
+  _dockVisible = !_dockVisible
+  $('dock-win').classList.toggle('hidden', !_dockVisible)
+  $('btn-txt').classList.toggle('active', _dockVisible)
+  window.api.window.setWidth(550 + (_dockVisible ? DOCK_WIDTH : 0))
+  updateWindowHeight() // sizes the dock to the player column
+  if (_dockVisible) {
+    const t = state.playlist[state.currentIndex]
+    if (t) loadLyricsFor(t)
+  }
+}
+
+async function loadLyricsFor(track) {
+  if (_lyricsForId === track.id) return
+  _lyricsForId = track.id
+  $('dock-title').textContent = 'ТЕКСТ — ' + track.title.toUpperCase()
+  $('lyrics-body').textContent = 'Загружаем текст...'
+  const res = await window.api.yandex.getLyrics(track.id)
+  if (_lyricsForId !== track.id) return // track switched meanwhile
+  $('lyrics-body').textContent = res.success && res.data.text
+    ? res.data.text
+    : 'Текст для этого трека не найден'
 }
 
 // ===== PERSISTED PLAYER STATE =====
@@ -277,6 +377,39 @@ async function loadLikedIds() {
   }
 }
 
+// ===== MEDIA KEYS / SYSTEM MEDIA OVERLAY =====
+// MediaSession wires hardware media keys and the OS media popup (SMTC on
+// Windows, Now Playing on macOS) to our controls
+function setupMediaSession() {
+  if ('mediaSession' in navigator) {
+    const ms = navigator.mediaSession
+    ms.setActionHandler('play', () => playPause())
+    ms.setActionHandler('pause', () => playPause())
+    ms.setActionHandler('previoustrack', () => playPrev())
+    ms.setActionHandler('nexttrack', () => userSkip())
+  }
+  // Commands from the tray menu
+  window.api.media.onCmd((cmd) => {
+    if (cmd === 'playpause') playPause()
+    else if (cmd === 'next') userSkip()
+    else if (cmd === 'prev') playPrev()
+  })
+}
+
+function updateMediaMetadata(track) {
+  if (!('mediaSession' in navigator)) return
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      artist: track.artist,
+      album: track.album || 'Яндекс Музыка',
+      artwork: track.coverUri
+        ? [{ src: 'https://' + track.coverUri.replace('%%', '200x200'), sizes: '200x200', type: 'image/jpeg' }]
+        : [],
+    })
+  } catch (_) {}
+}
+
 // ===== PLAYER UI =====
 function bindPlayerUI() {
   $('btn-minimize').addEventListener('click', () => window.api.window.minimize())
@@ -288,6 +421,10 @@ function bindPlayerUI() {
   $('btn-prev').addEventListener('click', playPrev)
   $('btn-next').addEventListener('click', userSkip)
   $('btn-search').addEventListener('click', openSearch)
+
+  // Lyrics dock
+  $('btn-txt').addEventListener('click', toggleDock)
+  $('dock-close').addEventListener('click', toggleDock)
 
   // Pin window on top of everything
   $('btn-pin').addEventListener('click', () => {
@@ -486,6 +623,32 @@ function bindPlaylistUI() {
     $('btn-my').classList.remove('active')
     updateWindowHeight()
   })
+
+  bindCtxMenu()
+
+  // User-resizable playlist: drag the handle at the bottom of the panel
+  const tracksEl = $('playlist-tracks')
+  const savedH = parseInt(localStorage.getItem('yamp-plh'), 10)
+  if (!Number.isNaN(savedH)) {
+    tracksEl.style.height = savedH + 'px'
+    tracksEl.style.maxHeight = 'none'
+  }
+  let resizing = null
+  $('pl-resize').addEventListener('mousedown', (e) => {
+    resizing = { startY: e.clientY, startH: tracksEl.offsetHeight }
+    e.preventDefault()
+  })
+  document.addEventListener('mousemove', (e) => {
+    if (!resizing) return
+    const h = Math.max(60, Math.min(600, resizing.startH + (e.clientY - resizing.startY)))
+    tracksEl.style.height = h + 'px'
+    tracksEl.style.maxHeight = 'none'
+  })
+  document.addEventListener('mouseup', () => {
+    if (!resizing) return
+    resizing = null
+    localStorage.setItem('yamp-plh', String(tracksEl.offsetHeight))
+  })
 }
 
 // ===== MY PLAYLISTS =====
@@ -616,10 +779,14 @@ function bindSearchUI() {
 
 function openSearch() {
   $('search-panel').classList.remove('hidden')
+  // The overlay needs room: when only the main window is visible the
+  // OS window is ~260px tall and the search results would be cut off
+  if ($('player-screen').offsetHeight < 560) window.api.window.setHeight(560)
   setTimeout(() => $('search-input').focus(), 50)
 }
 function closeSearch() {
   $('search-panel').classList.add('hidden')
+  updateWindowHeight() // shrink back to the actual content
 }
 
 async function doSearch() {
@@ -762,7 +929,15 @@ function setupAudio() {
       lastNode = filter
       state.eqNodes.push(filter)
     })
-    lastNode.connect(state.audioContext.destination)
+    // Gentle limiter — evens out loudness differences between tracks
+    const comp = state.audioContext.createDynamicsCompressor()
+    comp.threshold.value = -18
+    comp.knee.value = 20
+    comp.ratio.value = 4
+    comp.attack.value = 0.005
+    comp.release.value = 0.25
+    lastNode.connect(comp)
+    comp.connect(state.audioContext.destination)
 
     state.mediaSource = state.audioContext.createMediaElementSource(audio)
     state.mediaSource.connect(state.analyser)
@@ -795,6 +970,8 @@ async function playTrackByIndex(index) {
   highlightPlaylistItem(index)
   updateLikeUI()
   setCoverArt(track.coverUri)
+  updateMediaMetadata(track)
+  if (_dockVisible) loadLyricsFor(track)
 
   const res = await window.api.yandex.getTrackUrl(track.id)
   if (seq !== _playSeq) return // another track was requested meanwhile
@@ -961,7 +1138,7 @@ function renderPlaylist() {
     return
   }
   container.innerHTML = state.playlist.map((t, i) => `
-    <div class="pl-track ${i === state.currentIndex ? 'active' : ''}" data-index="${i}">
+    <div class="pl-track ${i === state.currentIndex ? 'active' : ''}" data-index="${i}" draggable="true">
       <span class="pl-num">${i + 1}.</span>
       <span class="pl-title">${state.likedIds.has(t.id) ? '<span class="pl-liked-mark">♥</span>' : ''}${esc(t.title)}</span>
       <span class="pl-artist">${esc(t.artist)}</span>
@@ -969,13 +1146,103 @@ function renderPlaylist() {
     </div>`).join('')
 
   container.querySelectorAll('.pl-track').forEach(el => {
+    const idx = () => Number(el.dataset.index)
     // Single click starts the track (Winamp-style dblclick confused users)
     el.addEventListener('click', () => {
-      const i = Number(el.dataset.index)
+      const i = idx()
       if (i === state.currentIndex && !audio.paused) return // already playing this one
       rememberCurrent()
       playTrackByIndex(i)
     })
+    // Drag & drop reorder
+    el.addEventListener('dragstart', (e) => {
+      _dragIdx = idx()
+      e.dataTransfer.effectAllowed = 'move'
+    })
+    el.addEventListener('dragover', (e) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      el.classList.add('drag-over')
+    })
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'))
+    el.addEventListener('drop', (e) => {
+      e.preventDefault()
+      el.classList.remove('drag-over')
+      if (_dragIdx !== null && _dragIdx !== idx()) moveTrack(_dragIdx, idx())
+      _dragIdx = null
+    })
+    // Right click — context menu
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault()
+      showCtxMenu(e.clientX, e.clientY, idx())
+    })
+  })
+}
+
+// ===== PLAYLIST REORDER / CONTEXT MENU =====
+let _dragIdx = null
+let _ctxIdx = null
+
+// Moves a track keeping currentIndex pointing at the same song
+function moveTrack(from, to) {
+  const cur = state.playlist[state.currentIndex] || null
+  const [t] = state.playlist.splice(from, 1)
+  state.playlist.splice(to, 0, t)
+  if (cur) state.currentIndex = state.playlist.indexOf(cur)
+  state.history = [] // indexes are stale after reorder
+  renderPlaylist()
+  savePlayerState()
+}
+
+function removeTrack(i) {
+  const wasCurrent = i === state.currentIndex
+  const cur = state.playlist[state.currentIndex] || null
+  const [t] = state.playlist.splice(i, 1)
+  if (wasCurrent) {
+    stopTrack()
+    state.currentIndex = -1
+  } else if (cur) {
+    state.currentIndex = state.playlist.indexOf(cur)
+  }
+  state.history = []
+  renderPlaylist()
+  updatePlCount()
+  savePlayerState()
+  flashMeta(`✖ ${t.title} удалён`)
+}
+
+function queueTrackNext(i) {
+  if (i === state.currentIndex) return
+  const target = state.currentIndex === -1 ? 0
+    : i > state.currentIndex ? state.currentIndex + 1 : state.currentIndex
+  const t = state.playlist[i]
+  moveTrack(i, target)
+  flashMeta(`⏭ ${t.title} — следующим`)
+}
+
+function showCtxMenu(x, y, idx) {
+  _ctxIdx = idx
+  const menu = $('ctx-menu')
+  menu.classList.remove('hidden')
+  // Keep the menu inside the window
+  const mw = menu.offsetWidth, mh = menu.offsetHeight
+  menu.style.left = Math.min(x, window.innerWidth - mw - 4) + 'px'
+  menu.style.top = Math.min(y, window.innerHeight - mh - 4) + 'px'
+}
+
+function bindCtxMenu() {
+  $('ctx-menu').querySelectorAll('.ctx-item').forEach(item => {
+    item.addEventListener('click', () => {
+      $('ctx-menu').classList.add('hidden')
+      if (_ctxIdx === null) return
+      if (item.dataset.act === 'next') queueTrackNext(_ctxIdx)
+      else if (item.dataset.act === 'del') removeTrack(_ctxIdx)
+      _ctxIdx = null
+    })
+  })
+  document.addEventListener('click', () => $('ctx-menu').classList.add('hidden'))
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') $('ctx-menu').classList.add('hidden')
   })
 }
 
@@ -1122,13 +1389,13 @@ function startSpectrumAnimation() {
       else { peakVel[i] += 0.3; peaks[i] = Math.max(0, peaks[i] - peakVel[i]) }
       const x = i * (bw + 1)
       const t = avg / 255
-      const topColor = t > 0.7 ? '#ff4444' : t > 0.4 ? '#ffdd00' : state.lcdGreen
+      const topColor = t > 0.7 ? state.lcdHot : t > 0.4 ? state.lcdWarm : state.lcdGreen
       const g = ctx.createLinearGradient(0, H - barH, 0, H)
       g.addColorStop(0, topColor); g.addColorStop(0.5, state.lcdMid); g.addColorStop(1, state.lcdDim)
       ctx.fillStyle = g
       ctx.fillRect(x, H - barH, bw, barH)
       if (peaks[i] > 2) {
-        ctx.fillStyle = t > 0.7 ? '#ff4444' : '#ffdd00'
+        ctx.fillStyle = t > 0.7 ? state.lcdHot : state.lcdWarm
         ctx.fillRect(x, H - peaks[i] - 1, bw, 2)
       }
     }
@@ -1172,8 +1439,8 @@ function startSpectrumAnimation() {
         const lit = fromBottom <= level
         const x = c * cw + 1.5, y = r * chh + 1
         if (lit) {
-          ctx.fillStyle = fromBottom > LED_ROWS * 0.8 ? '#ff4444'
-                        : fromBottom > LED_ROWS * 0.55 ? '#ffdd00'
+          ctx.fillStyle = fromBottom > LED_ROWS * 0.8 ? state.lcdHot
+                        : fromBottom > LED_ROWS * 0.55 ? state.lcdWarm
                         : state.lcdGreen
         } else {
           ctx.fillStyle = state.lcdDim
@@ -1208,7 +1475,7 @@ function startSpectrumAnimation() {
       for (let i = s; i <= s + SEG; i++) {
         peak = Math.max(peak, Math.abs(timeData[i] - 128) / 128)
       }
-      const color = peak > 0.55 ? '#ff4444' : peak > 0.3 ? '#ffdd00' : state.lcdGreen
+      const color = peak > 0.55 ? state.lcdHot : peak > 0.3 ? state.lcdWarm : state.lcdGreen
       ctx.strokeStyle = color
       ctx.shadowColor = color
       ctx.shadowBlur = 6 + peak * 10
@@ -1269,7 +1536,11 @@ function startSpectrumAnimation() {
 // ===== WINDOW HEIGHT =====
 function updateWindowHeight() {
   const h = $('player-screen').offsetHeight
-  if (h > 0) window.api.window.setHeight(h)
+  if (h <= 0) return
+  // The dock matches the player column height exactly
+  const dock = $('dock-win')
+  if (dock && !dock.classList.contains('hidden')) dock.style.height = h + 'px'
+  window.api.window.setHeight(h)
 }
 
 // ===== DRAGGABLE WINDOW =====

@@ -20,8 +20,7 @@
 }
 
 html, body {
-  width: 550px;
-  height: 100%;
+  width: 100%;
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
@@ -99,6 +98,13 @@ html, body {
   color: var(--accent);
   border-color: var(--bevel-lo) var(--bevel-hi) var(--bevel-hi) var(--bevel-lo);
   background: var(--bg-dark);
+}
+#btn-update {
+  color: var(--accent);
+  animation: update-blink 1.6s ease-in-out infinite;
+}
+@keyframes update-blink {
+  50% { opacity: 0.45; }
 }
 
 /* ===== LOGIN SCREEN ===== */
@@ -250,7 +256,65 @@ details .login-section { padding: 0 8px 8px; }
 }
 
 /* ===== PLAYER SCREEN ===== */
-#player-screen { width: 550px; }
+/* flex-start is important: panels must size to their content, not the
+   window, otherwise height measurement (adaptive window) breaks */
+body { display: flex; align-items: flex-start; }
+#player-screen { width: 550px; flex: none; }
+
+/* Side dock (lyrics etc.) */
+#dock-win {
+  width: 300px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
+#dock-win.hidden { display: none; }
+#lyrics-body {
+  flex: 1;
+  overflow-y: auto;
+  margin: 4px 6px 6px;
+  padding: 10px;
+  background: #111;
+  border: 2px solid;
+  border-color: var(--bevel-lo) var(--bevel-hi) var(--bevel-hi) var(--bevel-lo);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: var(--text);
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a3a #111;
+}
+
+/* Playlist resize handle */
+#pl-resize {
+  height: 7px;
+  cursor: ns-resize;
+  background: repeating-linear-gradient(90deg, transparent 0 6px, var(--bevel-lo) 6px 12px);
+  border-top: 1px solid var(--bevel-hi);
+}
+
+/* Context menu */
+#ctx-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 190px;
+  background: var(--bg-panel, #2a2a2a);
+  border: 1px solid;
+  border-color: var(--bevel-hi) var(--bevel-lo) var(--bevel-lo) var(--bevel-hi);
+  box-shadow: 3px 3px 8px rgba(0,0,0,0.5);
+}
+#ctx-menu.hidden { display: none; }
+.ctx-item {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text);
+  cursor: pointer;
+}
+.ctx-item:hover { background: var(--accent); color: #000; }
+
+/* Drag indicators */
+.pl-track.drag-over { border-top: 2px solid var(--accent); }
+.win-panel.panel-dragging { outline: 1px dashed var(--accent); opacity: 0.85; }
 
 /* ===== WINAMP MAIN WINDOW ===== */
 #winamp { width: 550px; }
@@ -304,8 +368,8 @@ details .login-section { padding: 0 8px 8px; }
 .sm-indicator {
   font-size: 8px;
   padding: 1px 3px;
-  color: var(--lcd-dim);
-  border: 1px solid var(--lcd-dim);
+  color: color-mix(in srgb, var(--lcd-green) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lcd-green) 45%, transparent);
   font-weight: bold;
   letter-spacing: 0.5px;
 }
@@ -327,8 +391,8 @@ details .login-section { padding: 0 8px 8px; }
   font-size: 11px;
   line-height: 1;
   background: transparent;
-  color: var(--lcd-dim);
-  border: 1px solid var(--lcd-dim);
+  color: color-mix(in srgb, var(--lcd-green) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lcd-green) 55%, transparent);
   cursor: pointer;
   padding: 0;
 }
@@ -408,7 +472,7 @@ details .login-section { padding: 0 8px 8px; }
   flex: none;
   overflow: hidden;
   font-size: 10px;
-  color: var(--lcd-dim);
+  color: color-mix(in srgb, var(--lcd-green) 65%, transparent);
   margin: 3px 0 4px;
   letter-spacing: 0.5px;
 }

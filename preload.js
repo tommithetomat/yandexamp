@@ -5,7 +5,15 @@ contextBridge.exposeInMainWorld('api', {
     minimize: () => ipcRenderer.invoke('window:minimize'),
     close: () => ipcRenderer.invoke('window:close'),
     setHeight: (h) => ipcRenderer.invoke('window:setHeight', h),
+    setWidth: (w) => ipcRenderer.invoke('window:setWidth', w),
     setPin: (on) => ipcRenderer.invoke('window:setPin', on),
+  },
+  media: {
+    onCmd: (cb) => ipcRenderer.on('media:cmd', (_, cmd) => cb(cmd)),
+  },
+  app: {
+    checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),
+    openReleases: (url) => ipcRenderer.invoke('app:openReleases', url),
   },
   yandex: {
     restoreSession: () => ipcRenderer.invoke('yandex:restoreSession'),
@@ -25,5 +33,6 @@ contextBridge.exposeInMainWorld('api', {
     setWaveSettings: (settings) => ipcRenderer.invoke('yandex:setWaveSettings', settings),
     waveFeedback: (type, trackId, playedSeconds) => ipcRenderer.invoke('yandex:waveFeedback', { type, trackId, playedSeconds }),
     getPlaylistTracks: (uid, kind) => ipcRenderer.invoke('yandex:getPlaylistTracks', { uid, kind }),
+    getLyrics: (trackId) => ipcRenderer.invoke('yandex:getLyrics', { trackId }),
   },
 })

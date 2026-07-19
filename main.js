@@ -1,10 +1,34 @@
-const { app, BrowserWindow, ipcMain, session, safeStorage } = require('electron')
+const { app, BrowserWindow, ipcMain, session, safeStorage, shell, Tray, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const https = require('https')
 const YandexMusicService = require('./src/yandex-music')
 
 let mainWindow
+let tray = null
 const yandex = new YandexMusicService()
+
+function toggleWindow() {
+  if (!mainWindow) return
+  if (mainWindow.isVisible()) mainWindow.hide()
+  else { mainWindow.show(); mainWindow.focus() }
+}
+
+function createTray() {
+  tray = new Tray(path.join(__dirname, 'icon.ico'))
+  tray.setToolTip('YandexAmp')
+  const send = cmd => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('media:cmd', cmd) }
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Показать / скрыть', click: () => toggleWindow() },
+    { type: 'separator' },
+    { label: 'Играть / пауза', click: () => send('playpause') },
+    { label: 'Следующий трек', click: () => send('next') },
+    { label: 'Предыдущий трек', click: () => send('prev') },
+    { type: 'separator' },
+    { label: 'Выход', click: () => app.quit() },
+  ]))
+  tray.on('click', () => toggleWindow())
+}
 
 // --- Persisted auth (encrypted with the OS keychain when available) ---
 
@@ -87,6 +111,7 @@ function createWindow() {
 app.whenReady().then(() => {
   loadAuth()
   createWindow()
+  createTray()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
@@ -98,10 +123,19 @@ app.on('window-all-closed', () => {
 
 // --- IPC Handlers ---
 
-ipcMain.handle('window:minimize', () => mainWindow.minimize())
+// Minimize goes to tray instead of the taskbar
+ipcMain.handle('window:minimize', () => mainWindow.hide())
 ipcMain.handle('window:close', () => mainWindow.close())
 ipcMain.handle('window:setPin', (_, on) => {
   mainWindow.setAlwaysOnTop(Boolean(on), 'floating')
+})
+ipcMain.handle('window:setWidth', (_, width) => {
+  const w = Math.round(width)
+  const [cur, h] = mainWindow.getContentSize()
+  if (cur === w) return
+  mainWindow.setResizable(true)
+  mainWindow.setContentSize(w, h, false)
+  mainWindow.setResizable(false)
 })
 
 // --- Browser OAuth ---
@@ -235,6 +269,53 @@ ipcMain.handle('window:setHeight', (_, height) => {
   mainWindow.setResizable(false)
 })
 
+// --- Update check against GitHub Releases ---
+
+const REPO = 'tommithetomat/yandexamp'
+
+function isNewerVersion(latest, current) {
+  const a = latest.split('.').map(Number)
+  const b = current.split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    if ((a[i] || 0) > (b[i] || 0)) return true
+    if ((a[i] || 0) < (b[i] || 0)) return false
+  }
+  return false
+}
+
+ipcMain.handle('app:checkUpdate', () => {
+  return new Promise((resolve) => {
+    const req = https.get({
+      hostname: 'api.github.com',
+      path: `/repos/${REPO}/releases/latest`,
+      headers: { 'User-Agent': 'YandexAmp', Accept: 'application/vnd.github+json' },
+    }, res => {
+      let data = ''
+      res.on('data', c => (data += c))
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data)
+          const latest = String(json.tag_name || '').replace(/^v/, '')
+          if (!latest) { resolve({ newer: false }); return }
+          resolve({
+            newer: isNewerVersion(latest, app.getVersion()),
+            latest,
+            url: json.html_url || `https://github.com/${REPO}/releases`,
+          })
+        } catch (_) { resolve({ newer: false }) }
+      })
+    })
+    req.on('error', () => resolve({ newer: false }))
+    req.setTimeout(10000, () => { req.destroy(); resolve({ newer: false }) })
+  })
+})
+
+ipcMain.handle('app:openReleases', (_, url) => {
+  // Only allow opening our own releases page
+  const safe = typeof url === 'string' && url.startsWith(`https://github.com/${REPO}/`)
+  shell.openExternal(safe ? url : `https://github.com/${REPO}/releases`)
+})
+
 // Silent session restore from the saved token; validates it against the API
 ipcMain.handle('yandex:restoreSession', async () => {
   if (!yandex.token) return { success: false }
@@ -356,6 +437,15 @@ ipcMain.handle('yandex:getWaveTracks', async (_, args) => {
 ipcMain.handle('yandex:getPlaylistTracks', async (_, { uid, kind }) => {
   try {
     const data = await yandex.getPlaylistTracks(uid, kind)
+    return { success: true, data }
+  } catch (err) {
+    return { success: false, error: err.message || String(err) }
+  }
+})
+
+ipcMain.handle('yandex:getLyrics', async (_, { trackId }) => {
+  try {
+    const data = await yandex.getLyrics(trackId)
     return { success: true, data }
   } catch (err) {
     return { success: false, error: err.message || String(err) }

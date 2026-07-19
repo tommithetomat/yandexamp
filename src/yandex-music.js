@@ -142,6 +142,52 @@ class YandexMusicService {
     return { title: 'Мне нравится', tracks }
   }
 
+  // Lyrics. The modern endpoint needs an HMAC-SHA256 signature of
+  // "<trackId><timestamp>" (key from the official client); it returns a
+  // downloadUrl with the plain text. Old /supplement kept as fallback.
+  // Lyrics require an HMAC-SHA256 signature of "<trackId><timestamp>" and the
+  // Android client header — the server validates the sign against that client.
+  async getLyrics(trackId) {
+    const ts = Math.floor(Date.now() / 1000)
+    const sign = crypto
+      .createHmac('sha256', 'p93jhgh689SBReK6ghtw62')
+      .update(`${trackId}${ts}`)
+      .digest('base64')
+    const raw = await this._apiGetRaw(
+      `/tracks/${trackId}/lyrics?format=TEXT&timeStamp=${ts}&sign=${encodeURIComponent(sign)}`,
+      'YandexMusicAndroid/24023621'
+    )
+    if (raw.status !== 200) return { text: '' }
+    let data = {}
+    try { data = JSON.parse(raw.body) } catch (_) {}
+    const url = data.result?.downloadUrl
+    if (!url) return { text: '' }
+    const text = await this._fetchText(url)
+    return { text: (text || '').trim() }
+  }
+
+  // Like _apiGet but returns { status, body } without throwing on bad JSON
+  _apiGetRaw(apiPath, client = 'WindowsPhone/3.17') {
+    return new Promise((resolve, reject) => {
+      if (!this.token) { reject(new Error('Not authenticated')); return }
+      const req = https.get({
+        hostname: 'api.music.yandex.net',
+        path: apiPath,
+        headers: {
+          Authorization:           `OAuth ${this.token}`,
+          'X-Yandex-Music-Client': client,
+          'User-Agent':            'YandexAmp/1.0',
+        },
+      }, res => {
+        let data = ''
+        res.on('data', c => (data += c))
+        res.on('end', () => resolve({ status: res.statusCode, body: data }))
+      })
+      req.on('error', reject)
+      req.setTimeout(10000, () => { req.destroy(); reject(new Error('API timeout')) })
+    })
+  }
+
   // ===== LIKES / DISLIKES =====
 
   async getLikedIds() {
@@ -397,10 +443,15 @@ class YandexMusicService {
     })
   }
 
-  _fetchText(url) {
+  _fetchText(url, redirects = 0) {
     return new Promise((resolve, reject) => {
       const { hostname, pathname, search } = new URL(url)
       const req = https.get({ hostname, path: pathname + search }, res => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects < 3) {
+          res.resume()
+          resolve(this._fetchText(new URL(res.headers.location, url).href, redirects + 1))
+          return
+        }
         let data = ''
         res.on('data', c => (data += c))
         res.on('end', () => resolve(data))

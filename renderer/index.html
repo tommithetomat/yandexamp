@@ -64,6 +64,7 @@
     <div id="titlebar" class="win-titlebar draggable">
       <span class="win-title">YANDEXAMP</span>
       <div class="title-buttons">
+        <button class="title-btn hidden" id="btn-update" title="Доступна новая версия — открыть страницу загрузки">NEW</button>
         <button class="title-btn" id="btn-pin" title="Поверх всех окон">PIN</button>
         <button class="title-btn" id="btn-skin" title="Сменить скин">CLR</button>
         <button class="title-btn" id="btn-minimize" title="Свернуть">_</button>
@@ -141,6 +142,7 @@
         <button class="fbtn" id="btn-eq"      title="Эквалайзер">EQ</button>
         <button class="fbtn active" id="btn-pl" title="Плейлист">PL</button>
         <button class="fbtn" id="btn-my"      title="Мои плейлисты">MY</button>
+        <button class="fbtn" id="btn-txt"     title="Текст песни">TXT</button>
       </div>
     </div>
   </div><!-- #winamp -->
@@ -158,6 +160,7 @@
       <button class="pl-bar-btn" id="pl-clear">ОЧИСТ.</button>
       <span id="pl-count">0 треков</span>
     </div>
+    <div id="pl-resize" title="Потянуть, чтобы изменить высоту плейлиста"></div>
   </div>
 
   <!-- My playlists window (hidden by default) -->
@@ -236,6 +239,23 @@
   </div>
 
 </div><!-- #player-screen -->
+
+<!-- Side dock: lyrics (and future pages) to the right of the player -->
+<div id="dock-win" class="win-panel hidden">
+  <div class="win-titlebar no-drag">
+    <span class="win-title" id="dock-title">ТЕКСТ ПЕСНИ</span>
+    <div class="title-buttons">
+      <button class="title-btn" id="dock-close" title="Закрыть">×</button>
+    </div>
+  </div>
+  <div id="lyrics-body">Включите трек — текст появится здесь</div>
+</div>
+
+<!-- Custom context menu for playlist rows -->
+<div id="ctx-menu" class="hidden">
+  <div class="ctx-item" data-act="next">⏭ Поставить следующим</div>
+  <div class="ctx-item" data-act="del">✖ Удалить из плейлиста</div>
+</div>
 
 <!-- SEARCH PANEL (overlay) -->
 <div id="search-panel" class="hidden">
