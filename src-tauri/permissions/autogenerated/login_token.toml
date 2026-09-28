@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-login-token"
+description = "Enables the login_token command without any pre-configured scope."
+commands.allow = ["login_token"]
+
+[[permission]]
+identifier = "deny-login-token"
+description = "Denies the login_token command without any pre-configured scope."
+commands.deny = ["login_token"]

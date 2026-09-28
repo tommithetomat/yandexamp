@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-station-tracks"
+description = "Enables the get_station_tracks command without any pre-configured scope."
+commands.allow = ["get_station_tracks"]
+
+[[permission]]
+identifier = "deny-get-station-tracks"
+description = "Denies the get_station_tracks command without any pre-configured scope."
+commands.deny = ["get_station_tracks"]

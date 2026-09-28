@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ru" data-finish="aluminium">
+<head>
+<meta charset="utf-8">
+<title>YandexAmp</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13" style="stroke-width:3.2"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18 6v12L9 12z" fill="currentColor"/><path d="M6 6v12"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M6 6v12l9-6z" fill="currentColor"/><path d="M18 6v12"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M16 4h4v4M4 20 20 4M20 16v4h-4M14 14l6 6M4 4l5 5"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol>
+  <symbol id="i-heart-f" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="currentColor"/></symbol>
+  <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5l11 11"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 4h6l-1 6 3 3H7l3-3z"/><path d="M12 13v7"/></symbol>
+  <symbol id="i-mini" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="11" y="11" width="7" height="5" rx="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h7M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-7"/></symbol>
+  <symbol id="i-new" viewBox="0 0 24 24"><path d="M12 8v8M8 12h8M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><path d="M12 7.5V12l3 2M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
+  <symbol id="i-again" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4.5h4.5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-in" viewBox="0 0 24 24"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M14 16l4-4-4-4M18 12H8"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/></symbol>
+  <symbol id="i-next-up" viewBox="0 0 24 24"><path d="M4 7h10M4 12h10M4 17h6M16 14l4 3-4 3z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4z"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
+  <symbol id="i-lyrics" viewBox="0 0 24 24"><path d="M4 6h11M4 10.5h11M4 15h6"/><path d="M17.5 19.5V9.5l3.5-1" /><circle cx="15.5" cy="19.5" r="2" fill="currentColor"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M10.5 9.5v5l4-2.5z" fill="currentColor"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6.5 7l1 13h9l1-13M9.5 7V4h5v3"/></symbol>
+</svg>
+
+<!-- ============ LOGIN ============ -->
+<section id="login" class="screen login hidden" aria-label="Вход">
+  <header class="tbar drag">
+    <div class="brand"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" class="logo-bg"/><path d="M13.6 3.8 6.8 13.2h4.6l-1.1 7 7-9.6h-4.6z" class="logo-bolt"/></svg><span class="wordmark">YANDEXAMP</span></div>
+    <div class="grow"></div>
+    <button class="tbtn" data-act="tray" aria-label="Свернуть"><svg class="ic"><use href="#i-minus"/></svg></button>
+    <button class="tbtn" data-act="quit" aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+  </header>
+  <div class="login-body">
+    <div class="bezel">
+      <div class="glass login-hero">
+        <canvas id="login-wave" aria-hidden="true"></canvas>
+        <div class="login-mark"><span class="wordmark big">YANDEXAMP</span><span class="chip">2.0</span></div>
+        <p class="login-tag">Hi-Fi плеер для Яндекс Музыки</p>
+      </div>
+    </div>
+    <button class="key hot login-main" id="login-browser"><svg class="ic"><use href="#i-in"/></svg>Войти через Яндекс</button>
+    <p class="login-note">Откроется страница Яндекса — пароль вводится там, плеер его не видит.</p>
+    <details class="alt">
+      <summary>Логин и пароль</summary>
+      <form id="login-form" class="alt-form">
+        <label>Логин или почта<input id="login-user" autocomplete="username" required></label>
+        <label>Пароль<input id="login-pass" type="password" autocomplete="current-password" required></label>
+        <button class="key" type="submit">Войти</button>
+      </form>
+    </details>
+    <details class="alt">
+      <summary>OAuth-токен</summary>
+      <form id="token-form" class="alt-form">
+        <label>Токен<input id="login-token" autocomplete="off" spellcheck="false" placeholder="y0_…" required></label>
+        <button class="key" type="submit">Войти с токеном</button>
+      </form>
+    </details>
+    <p id="login-error" class="login-error" role="alert"></p>
+    <p class="login-foot"><svg class="ic sm"><use href="#i-lock"/></svg>Вход хранится зашифрованным в системном хранилище</p>
+  </div>
+</section>
+
+<!-- ============ PLAYER ============ -->
+<section id="player" class="screen player hidden" aria-label="Плеер">
+  <header class="tbar drag">
+    <div class="brand"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" class="logo-bg"/><path d="M13.6 3.8 6.8 13.2h4.6l-1.1 7 7-9.6h-4.6z" class="logo-bolt"/></svg><span class="wordmark">YANDEXAMP</span><span class="chip">2.0</span></div>
+    <form id="search-form" class="search" role="search">
+      <svg class="ic"><use href="#i-search"/></svg>
+      <label class="sr" for="search">Поиск по Яндекс Музыке</label>
+      <input id="search" type="search" placeholder="Трек, артист или альбом" autocomplete="off">
+      <kbd>CTRL K</kbd>
+    </form>
+    <div class="grow"></div>
+    <button class="tbtn hidden" id="btn-update" aria-label="Доступна новая версия">NEW</button>
+    <button class="tbtn" id="btn-settings" aria-label="Настройки" title="Настройки" aria-haspopup="dialog"><svg class="ic"><use href="#i-gear"/></svg></button>
+    <span class="vsep"></span>
+    <button class="tbtn" id="btn-pin" aria-label="Поверх всех окон" aria-pressed="false" title="Поверх всех окон"><svg class="ic"><use href="#i-pin"/></svg></button>
+    <button class="tbtn" data-act="mini" aria-label="Мини-режим" title="Мини-режим"><svg class="ic"><use href="#i-mini"/></svg></button>
+    <button class="tbtn" id="btn-logout" aria-label="Выйти из аккаунта" title="Выйти из аккаунта"><svg class="ic"><use href="#i-out"/></svg></button>
+    <button class="tbtn" data-act="tray" aria-label="Свернуть в трей" title="Свернуть в трей"><svg class="ic"><use href="#i-minus"/></svg></button>
+    <button class="tbtn" data-act="quit" aria-label="Закрыть" title="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+  </header>
+
+  <div class="body">
+    <nav class="side scroll" aria-label="Библиотека">
+      <section class="wave-card glass" aria-label="Моя волна">
+        <div class="wave-head">
+          <div><span class="wave-title">Моя волна</span><span class="wave-sub" id="wave-sub">Бесконечный поток под вас</span></div>
+          <button class="key hot round" id="wave-start" aria-label="Запустить Мою волну"><svg class="ic"><use href="#i-play"/></svg></button>
+        </div>
+        <canvas id="wave-canvas" aria-hidden="true"></canvas>
+        <div class="moods" id="moods" role="group" aria-label="Настроение волны"></div>
+        <div class="wave-sel">
+          <div class="pick-field"><span id="lbl-div">Подбор</span><button class="pick" id="pick-div" aria-haspopup="menu" aria-labelledby="lbl-div pick-div"><span></span><svg class="ic sm"><use href="#i-chev"/></svg></button></div>
+          <div class="pick-field"><span id="lbl-lang">Язык</span><button class="pick" id="pick-lang" aria-haspopup="menu" aria-labelledby="lbl-lang pick-lang"><span></span><svg class="ic sm"><use href="#i-chev"/></svg></button></div>
+        </div>
+      </section>
+      <div class="group"><h2>Яндекс для вас</h2><div id="nav-foryou"></div></div>
+      <div class="group"><h2>Мои плейлисты</h2><div id="nav-mine"><p class="muted">Загружаем…</p></div></div>
+      <div class="group"><h2>Открыть</h2><div class="tiles" id="nav-open"></div></div>
+      <div class="group"><h2>Станции</h2><div class="chips" id="nav-stations"><p class="muted">Загружаем…</p></div></div>
+    </nav>
+
+    <main class="center">
+      <section class="bezel display-bezel" aria-label="Сейчас играет">
+        <div class="glass display">
+          <div class="np">
+            <div class="vinyl" id="vinyl" aria-hidden="true"><span class="vinyl-dot"></span><div class="vinyl-label" id="vinyl-label"></div></div>
+            <div class="np-info">
+              <div class="leds"><span id="st-state" class="led-state"><i></i><b>STOP</b></span><span class="led on">ST</span><span class="led on">320K</span><span class="led on">44.1</span><span class="led" id="led-eq">EQ</span><span class="led" id="led-wave">WAVE</span><button class="led led-btn" id="led-clip" aria-label="У трека есть клип — открыть сцену" title="У трека есть клип — открыть сцену" disabled>CLIP</button></div>
+              <div class="np-title" id="np-title"><span>YandexAmp</span></div>
+              <div class="np-sub"><button id="np-artist" class="np-artist"><span>Выберите музыку слева</span><svg class="ic sm chev hidden"><use href="#i-chev"/></svg></button><span class="dot" aria-hidden="true">·</span><span id="np-source"></span></div>
+              <div class="grow"></div>
+              <div class="np-bottom">
+                <div class="np-time"><span id="t-cur" class="tm"></span><span id="t-left" class="tm"></span></div>
+                <div class="np-rate">
+                  <button class="rate" id="btn-like" aria-label="Нравится" aria-pressed="false"><svg class="ic"><use href="#i-heart"/></svg></button>
+                  <button class="rate" id="btn-dislike" aria-label="Не нравится — пропустить"><svg class="ic"><use href="#i-ban"/></svg></button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="viz">
+            <button class="viz-hit" id="viz-hit" aria-label="Сменить визуализатор"><canvas id="viz-canvas" aria-hidden="true"></canvas></button>
+            <p class="viz-lyric hidden" id="viz-lyric" aria-hidden="true"><span></span></p>
+            <button class="viz-pick" id="viz-pick" aria-haspopup="dialog" aria-expanded="false" title="Выбрать визуализатор"><svg class="ic sm"><use href="#i-grid"/></svg><b></b><span></span><svg class="ic sm"><use href="#i-chev"/></svg></button>
+          </div>
+        </div>
+      </section>
+
+      <div class="seek ctl">
+        <span class="t tm" id="seek-cur"></span>
+        <div class="seek-track">
+          <div class="seek-bars cap" id="seek-bars" aria-hidden="true"></div>
+          <input class="hit" id="seek" type="range" min="0" max="1" step="0.1" value="0" aria-label="Позиция трека">
+        </div>
+        <span class="t tm right" id="seek-total"></span>
+      </div>
+
+      <div class="transport">
+        <div class="keys" role="group" aria-label="Управление">
+          <button class="key" id="btn-prev" aria-label="Предыдущий трек"><svg class="ic lg"><use href="#i-prev"/></svg></button>
+          <button class="key hot wide" id="btn-play" aria-label="Играть"><svg class="ic lg"><use href="#i-play"/></svg></button>
+          <button class="key" id="btn-stop" aria-label="Стоп"><svg class="ic"><use href="#i-stop"/></svg></button>
+          <button class="key" id="btn-next" aria-label="Следующий трек"><svg class="ic lg"><use href="#i-next"/></svg></button>
+        </div>
+        <span class="vsep tall"></span>
+        <button class="key sq" id="btn-shuffle" aria-label="Перемешать" aria-pressed="false"><svg class="ic"><use href="#i-shuffle"/></svg><i class="lamp"></i></button>
+        <button class="key sq" id="btn-repeat" aria-label="Повтор трека" aria-pressed="false"><svg class="ic"><use href="#i-repeat"/></svg><i class="lamp"></i></button>
+        <div class="grow"></div>
+        <div class="bal ctl">
+          <div class="silk"><span>Баланс</span><span class="num" id="bal-val">C</span></div>
+          <div class="bal-track">
+            <i class="bal-rail"></i><i class="bal-mid"></i><i class="bal-cap key cap" id="bal-cap"></i>
+            <input class="hit" id="bal" type="range" min="-50" max="50" value="0" aria-label="Баланс">
+          </div>
+        </div>
+        <div class="vol ctl">
+          <div class="vol-read"><span class="silk-l">Громк.</span><span class="num big" id="vol-val">72</span></div>
+          <div class="knob-wrap" id="knob-wrap">
+            <div class="knob-dots" id="knob-dots" aria-hidden="true"></div>
+            <div class="knob cap" aria-hidden="true"><div class="knob-rot" id="knob-rot"><i></i></div></div>
+            <input class="hit" id="vol" type="range" min="0" max="100" value="72" aria-label="Громкость">
+          </div>
+        </div>
+      </div>
+
+      <section class="bezel eq" aria-label="Эквалайзер">
+        <div class="eq-head">
+          <h2>Эквалайзер</h2>
+          <button class="eq-toggle" id="eq-toggle" aria-pressed="true" aria-label="Эквалайзер включён"><i class="lamp"></i><span>ON</span></button>
+          <div class="grow"></div>
+          <div class="seg" id="eq-presets" role="group" aria-label="Пресеты эквалайзера"></div>
+        </div>
+        <div class="eq-graph">
+          <div class="glass eq-meter"><canvas id="meter-canvas" role="img" aria-label="Индикатор уровня"></canvas></div>
+          <div class="glass eq-curve"><canvas id="eq-canvas" role="img" aria-label="Кривая эквалайзера поверх спектра"></canvas><div class="eq-scale" aria-hidden="true"><span>+12</span><span>0</span><span>-12</span></div></div>
+        </div>
+        <div class="faders" id="faders"></div>
+      </section>
+    </main>
+
+    <aside class="panel" aria-label="Боковая панель">
+      <div class="tabs" role="tablist" id="tabs">
+        <button role="tab" data-tab="queue">Очередь</button>
+        <button role="tab" data-tab="lyrics">Текст</button>
+        <button role="tab" data-tab="stage">Сцена</button>
+        <button role="tab" data-tab="artist">Артист</button>
+        <button role="tab" data-tab="search" class="hidden" id="tab-search">Поиск</button>
+      </div>
+      <div class="view" id="view-queue">
+        <div class="view-head"><div><span class="eyebrow">Очередь</span><span class="view-title" id="q-source">Пусто</span></div><span class="muted" id="q-meta"></span></div>
+        <ol class="rows scroll" id="q-rows"></ol>
+      </div>
+      <div class="view hidden" id="view-lyrics">
+        <div class="view-head"><div><span class="eyebrow">Текст песни</span><span class="view-title" id="ly-title">—</span></div><span class="pill hidden" id="ly-sync">SYNC</span></div>
+        <div class="lyrics scroll" id="ly-body"></div>
+      </div>
+      <div class="view hidden" id="view-stage">
+        <div class="view-head"><div><span class="eyebrow" id="stage-kind">Сцена</span><span class="view-title" id="stage-title">—</span></div></div>
+        <div class="stage-wrap"><div class="stage" id="stage-main">
+    <img class="stage-bg" alt="">
+    <img class="stage-art" alt="">
+    <video class="stage-video" muted loop playsinline preload="auto"></video>
+    <canvas class="stage-canvas" aria-hidden="true"></canvas>
+    <div class="stage-shade"></div>
+    <div class="stage-lyrics" aria-hidden="true"><p class="l-prev"></p><p class="l-now"><span></span></p><p class="l-next"></p></div>
+  </div></div>
+      </div>
+      <div class="view hidden" id="view-artist"><div class="artist scroll" id="ar-body"></div></div>
+      <div class="view hidden" id="view-stations">
+        <div class="view-head"><div><span class="eyebrow">Радио</span><span class="view-title">Все станции</span></div><button class="row-b" data-back aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button></div>
+        <label class="filter"><svg class="ic sm"><use href="#i-search"/></svg><span class="sr">Найти станцию</span><input id="st-filter" type="search" placeholder="Найти станцию" autocomplete="off"></label>
+        <div class="stations scroll" id="st-body"></div>
+      </div>
+      <div class="view hidden" id="view-history">
+        <div class="view-head"><div><span class="eyebrow">Открыть</span><span class="view-title">История</span></div><button class="row-b" data-back aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button></div>
+        <div class="history scroll" id="hist-body"></div>
+      </div>
+      <div class="view hidden" id="view-search">
+        <div class="view-head"><div><span class="eyebrow">Поиск</span><span class="view-title" id="s-title">—</span></div></div>
+        <ol class="rows scroll" id="s-rows"></ol>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ MINI ============ -->
+<section id="mini" class="screen mini hidden drag" aria-label="Мини-плеер">
+  <div class="vinyl small" id="m-vinyl" aria-hidden="true"><span class="vinyl-dot"></span><div class="vinyl-label" id="m-label"></div></div>
+  <div class="glass m-screen">
+    <div class="m-row"><span class="m-title" id="m-title">YandexAmp</span><button class="m-ly ly-toggle" aria-label="Текст песни в мини-плеере" title="Текст песни"><svg class="ic sm"><use href="#i-lyrics"/></svg></button><span class="m-time tm" id="m-time"></span></div>
+    <span class="m-artist" id="m-artist"></span>
+    <span class="m-line hidden" id="m-line"><span></span></span>
+    <canvas id="m-canvas" aria-hidden="true"></canvas>
+  </div>
+  <div class="keys" role="group" aria-label="Управление">
+    <button class="key" data-act="prev" aria-label="Предыдущий трек"><svg class="ic"><use href="#i-prev"/></svg></button>
+    <button class="key hot wide" data-act="play" id="m-play" aria-label="Играть"><svg class="ic"><use href="#i-play"/></svg></button>
+    <button class="key" data-act="next" aria-label="Следующий трек"><svg class="ic"><use href="#i-next"/></svg></button>
+  </div>
+  <div class="knob-wrap sm ctl" id="m-knob">
+    <div class="knob-dots" aria-hidden="true"></div>
+    <div class="knob cap" aria-hidden="true"><div class="knob-rot"><i></i></div></div>
+    <input class="hit" type="range" min="0" max="100" aria-label="Громкость">
+  </div>
+  <div class="m-side">
+    <button class="rate hw" id="m-like" aria-label="Нравится"><svg class="ic"><use href="#i-heart"/></svg></button>
+    <button class="rate hw" data-act="full" aria-label="Развернуть плеер"><svg class="ic"><use href="#i-expand"/></svg></button>
+  </div>
+</section>
+
+<!-- ============ MINI · VERTICAL ============ -->
+<section id="mini-v" class="screen miniv hidden drag" aria-label="Вертикальный мини-плеер">
+  <header class="mv-head">
+    <div class="brand"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" class="logo-bg"/><path d="M13.6 3.8 6.8 13.2h4.6l-1.1 7 7-9.6h-4.6z" class="logo-bolt"/></svg><span class="wordmark">YANDEXAMP</span></div>
+    <button class="tbtn" data-act="full" aria-label="Развернуть плеер" title="Развернуть плеер"><svg class="ic"><use href="#i-expand"/></svg></button>
+    <button class="tbtn" data-act="tray" aria-label="Свернуть в трей" title="Свернуть в трей"><svg class="ic"><use href="#i-minus"/></svg></button>
+  </header>
+  <div class="bezel mv-bezel"><div class="stage" id="stage-mini">
+    <img class="stage-bg" alt="">
+    <img class="stage-art" alt="">
+    <video class="stage-video" muted loop playsinline preload="auto"></video>
+    <canvas class="stage-canvas" aria-hidden="true"></canvas>
+    <div class="stage-shade"></div>
+    <div class="stage-lyrics" aria-hidden="true"><p class="l-prev"></p><p class="l-now"><span></span></p><p class="l-next"></p></div>
+  </div></div>
+  <div class="mv-info">
+    <div class="mv-txt"><span class="mv-title" id="mv-title">YandexAmp</span><button class="mv-artist" id="mv-artist"><span></span><svg class="ic sm chev hidden"><use href="#i-chev"/></svg></button></div>
+    <button class="rate hw" id="mv-like" aria-label="Нравится"><svg class="ic"><use href="#i-heart"/></svg></button>
+  </div>
+  <div class="mv-seek ctl">
+    <div class="mv-rail"><i class="mv-fill" id="mv-fill"></i><i class="mv-cap cap" id="mv-cap"></i><input class="hit" id="mv-seek" type="range" min="0" max="1" step="0.1" value="0" aria-label="Позиция трека"></div>
+    <div class="mv-times"><span class="tm" id="mv-cur"></span><span class="tm" id="mv-total"></span></div>
+  </div>
+  <div class="mv-ctl">
+    <button class="rate hw ly-toggle" aria-label="Текст песни в мини-плеере" title="Текст песни"><svg class="ic"><use href="#i-lyrics"/></svg></button>
+    <div class="keys mv-keys" role="group" aria-label="Управление">
+      <button class="key" data-act="prev" aria-label="Предыдущий трек"><svg class="ic lg"><use href="#i-prev"/></svg></button>
+      <button class="key hot wide" data-act="play" id="mv-play" aria-label="Играть"><svg class="ic lg"><use href="#i-play"/></svg></button>
+      <button class="key" data-act="next" aria-label="Следующий трек"><svg class="ic lg"><use href="#i-next"/></svg></button>
+    </div>
+    <div class="knob-wrap sm ctl" id="mv-knob" title="Громкость">
+      <div class="knob-dots" aria-hidden="true"></div>
+      <div class="knob cap" aria-hidden="true"><div class="knob-rot"><i></i></div></div>
+      <input class="hit" type="range" min="0" max="100" aria-label="Громкость">
+    </div>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<div id="settings" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="set-title">
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet-panel">
+    <header class="sheet-head"><div><span class="eyebrow">YandexAmp</span><h2 id="set-title">Настройки</h2></div><button class="row-b" data-close aria-label="Закрыть настройки"><svg class="ic"><use href="#i-close"/></svg></button></header>
+    <div class="sheet-body scroll">
+      <section class="set-sec">
+        <h3>Отделка корпуса</h3>
+        <div class="finishes" id="set-finish" role="radiogroup" aria-label="Отделка корпуса"></div>
+        <label class="set-row"><span><b>Подсветка по обложке</b><small>Дисплей и индикаторы берут цвет текущего трека</small></span><input type="checkbox" class="switch" data-cfg="coverAccent"></label>
+      </section>
+      <section class="set-sec">
+        <h3>Блоки плеера</h3>
+        <label class="set-row"><span><b>Библиотека слева</b><small>Моя волна, плейлисты, станции</small></span><input type="checkbox" class="switch" data-cfg="side"></label>
+        <label class="set-row"><span><b>Эквалайзер</b><small>Без него дисплей занимает освободившееся место</small></span><input type="checkbox" class="switch" data-cfg="eq"></label>
+        <label class="set-row"><span><b>Панель справа</b><small>Очередь, текст, сцена, артист</small></span><input type="checkbox" class="switch" data-cfg="panel"></label>
+        <label class="set-row"><span><b>Строка текста на дисплее</b><small>Синхронный текст поверх визуализатора</small></span><input type="checkbox" class="switch" data-cfg="lyricLine"></label>
+        <label class="set-row"><span><b>Клипы треков</b><small>Короткие видео из Яндекс Музыки на сцене и в мини-плеере</small></span><input type="checkbox" class="switch" data-cfg="video"></label>
+      </section>
+      <section class="set-sec">
+        <h3>Мини-плеер</h3>
+        <div class="mini-pick" role="radiogroup" aria-label="Вид мини-плеера">
+          <button role="radio" data-mini="h"><i class="mp mp-h"><b></b><u></u></i><span>Полоска</span><small>Узкая, с громкостью</small></button>
+          <button role="radio" data-mini="v"><i class="mp mp-v"><b></b><u></u></i><span>Карточка</span><small>Сцена с клипом и текстом</small></button>
+        </div>
+        <label class="set-row"><span><b>Поверх всех окон</b><small>Мини-плеер не прячется за другими окнами</small></span><input type="checkbox" class="switch" data-cfg="miniPin"></label>
+      </section>
+      <section class="set-sec">
+        <h3>Сеть</h3>
+        <label class="set-row"><span><b>Загружать следующий трек заранее</b><small>Смена трека без паузы, даже когда VPN переподключается</small></span><input type="checkbox" class="switch" data-cfg="prefetch"></label>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VISUALIZER GALLERY ============ -->
+<div id="viz-gallery" class="gallery hidden" role="dialog" aria-label="Визуализаторы">
+  <div class="gallery-head"><span class="eyebrow">Визуализатор</span><span class="muted">На дисплее, в мини-плеере и на сцене</span></div>
+  <div class="gallery-grid" id="gal-grid"></div>
+</div>
+
+<div id="menu" class="menu hidden" role="menu"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<audio id="audio" crossorigin="anonymous" preload="auto"></audio>
+
+<script src="tauri-bridge.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

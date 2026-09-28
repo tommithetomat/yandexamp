@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-win-set-width"
+description = "Enables the win_set_width command without any pre-configured scope."
+commands.allow = ["win_set_width"]
+
+[[permission]]
+identifier = "deny-win-set-width"
+description = "Denies the win_set_width command without any pre-configured scope."
+commands.deny = ["win_set_width"]

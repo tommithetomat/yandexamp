@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-track-stream-url"
+description = "Enables the track_stream_url command without any pre-configured scope."
+commands.allow = ["track_stream_url"]
+
+[[permission]]
+identifier = "deny-track-stream-url"
+description = "Denies the track_stream_url command without any pre-configured scope."
+commands.deny = ["track_stream_url"]

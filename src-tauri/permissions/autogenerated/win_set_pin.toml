@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-win-set-pin"
+description = "Enables the win_set_pin command without any pre-configured scope."
+commands.allow = ["win_set_pin"]
+
+[[permission]]
+identifier = "deny-win-set-pin"
+description = "Denies the win_set_pin command without any pre-configured scope."
+commands.deny = ["win_set_pin"]

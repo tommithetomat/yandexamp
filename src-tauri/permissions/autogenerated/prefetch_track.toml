@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-prefetch-track"
+description = "Enables the prefetch_track command without any pre-configured scope."
+commands.allow = ["prefetch_track"]
+
+[[permission]]
+identifier = "deny-prefetch-track"
+description = "Denies the prefetch_track command without any pre-configured scope."
+commands.deny = ["prefetch_track"]

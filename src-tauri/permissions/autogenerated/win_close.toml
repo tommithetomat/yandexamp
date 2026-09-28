@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-win-close"
+description = "Enables the win_close command without any pre-configured scope."
+commands.allow = ["win_close"]
+
+[[permission]]
+identifier = "deny-win-close"
+description = "Denies the win_close command without any pre-configured scope."
+commands.deny = ["win_close"]
