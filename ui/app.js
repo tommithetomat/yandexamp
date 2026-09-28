@@ -963,29 +963,62 @@ function rowHtml(t, i, kind) {
     <span class="row-d tm">${tmh((t.duration || 0) / 1000)}</span>
     <button class="row-b" data-a="more" aria-haspopup="menu" aria-label="Действия с треком">${icon('more')}</button></li>`
 }
+// The queue can hold thousands of tracks («Мне нравится»). Only the rows in
+// view, plus a margin, exist in the DOM; the rest is padding. Rendering them
+// all (25k+ nodes) cost WebView2 the better part of a gigabyte.
+const ROW_H = 54 // 52px row + 2px gap
+const VQ = { first: -1, last: -1 }
 function renderQueue() {
   $('#q-source').textContent = S.source || 'Пусто'
   const min = Math.round(S.queue.reduce((a, t) => a + (t.duration || 0), 0) / 60000)
   $('#q-meta').textContent = S.queue.length ? `${S.queue.length} ${plural(S.queue.length, 'трек', 'трека', 'треков')} · ${min} мин` : ''
   const el = $('#q-rows')
+  VQ.first = VQ.last = -1
   if (!S.queue.length) {
     el.innerHTML = '<li class="empty">Очередь пуста. Запустите Мою волну, выберите плейлист слева или найдите трек.</li>'
     return
   }
-  el.innerHTML = S.queue.map((t, i) => rowHtml(t, i, 'q')).join('')
-  el.children[S.cur]?.scrollIntoView({ block: 'nearest' })
+  paintQueueWindow()
+  revealCurrent()
+}
+function paintQueueWindow() {
+  const el = $('#q-rows'), n = S.queue.length
+  if (!n) return
+  const view = el.clientHeight || 700
+  const first = Math.max(0, Math.floor(el.scrollTop / ROW_H) - 8)
+  const last = Math.min(n, Math.ceil((el.scrollTop + view) / ROW_H) + 8)
+  if (first === VQ.first && last === VQ.last) return
+  VQ.first = first
+  VQ.last = last
+  // Spacer items, not padding: a flex item can't shrink below its padding,
+  // so padding would stretch the list to full height and defeat the window.
+  // Each spacer is 2px short to make up for the gap that follows it.
+  const pad = (rows) => (rows > 0 ? `<li class="vpad" aria-hidden="true" style="height:${rows * ROW_H - 2}px"></li>` : '')
+  let html = pad(first)
+  for (let i = first; i < last; i++) html += rowHtml(S.queue[i], i, 'q')
+  el.innerHTML = html + pad(n - last)
+}
+// Scroll the playing track into view if it isn't
+function revealCurrent() {
+  const el = $('#q-rows')
+  if (S.cur < 0 || !el.clientHeight) return
+  const top = S.cur * ROW_H, view = el.clientHeight
+  if (top < el.scrollTop || top + ROW_H > el.scrollTop + view) {
+    el.scrollTop = Math.max(0, top - view / 2 + ROW_H / 2)
+    paintQueueWindow()
+  }
 }
 function markCurrent(prevIdx) {
-  const rows = $('#q-rows').children
+  const el = $('#q-rows')
   const set = (i, on) => {
-    const row = rows[i]
-    if (!row || row.dataset.kind !== 'q') return
+    const row = el.querySelector(`.row[data-i="${i}"]`)
+    if (!row) return
     row.classList.toggle('cur', on)
     $('.row-n', row).innerHTML = on ? '<span class="eqbars"><i></i><i></i><i></i></span>' : String(i + 1)
   }
   if (prevIdx >= 0) set(prevIdx, false)
   set(S.cur, true)
-  rows[S.cur]?.scrollIntoView({ block: 'nearest' })
+  revealCurrent()
 }
 
 function listFor(kind) {
@@ -1100,6 +1133,7 @@ function setTab(tab, autoload = true) {
   if (tab === 'stations') { renderStations(); $('#st-filter').focus() }
   if (tab === 'history') loadHistory()
   if (tab === 'lyrics') lyricIdx = -2
+  if (tab === 'queue') { paintQueueWindow(); revealCurrent() }
   syncVideo()
   if (!autoload) return
   if (tab === 'artist' && !S.artist) openArtist()
@@ -1227,14 +1261,9 @@ function stageTrack(t) {
     if (v.dataset.src !== vid) {
       v.dataset.src = vid
       st.classList.remove('has-video')
-      if (vid) {
-        v.src = vid
-        v.onloadeddata = () => { if (v.dataset.src === vid) { st.classList.add('has-video'); syncVideo() } }
-        v.onerror = () => st.classList.remove('has-video')
-      } else {
-        v.removeAttribute('src')
-        v.load()
-      }
+      v.onloadeddata = () => { if (v.dataset.src && v.getAttribute('src') === v.dataset.src) { st.classList.add('has-video'); syncVideo() } }
+      v.onerror = () => st.classList.remove('has-video')
+      if (v.getAttribute('src')) { v.removeAttribute('src'); v.load() }
     }
   }
   const clip = $('#led-clip')
@@ -1244,13 +1273,22 @@ function stageTrack(t) {
   $('#stage-title').textContent = t ? `${t.title} — ${t.artist}` : '—'
   syncVideo()
 }
-// Only a visible clip plays, and only while the music does
+// Only the visible stage loads the clip (a hidden, paused decoder still holds
+// memory), and it plays only while the music does
 function syncVideo() {
   const playing = playState === 'play'
   for (const st of $$('.stage')) {
-    const v = $('.stage-video', st)
+    const v = $('.stage-video', st), want = v.dataset.src || '', visible = !!st.offsetParent
+    if (visible && want && v.getAttribute('src') !== want) {
+      st.classList.remove('has-video')
+      v.src = want
+    } else if ((!visible || !want) && v.getAttribute('src')) {
+      st.classList.remove('has-video')
+      v.removeAttribute('src')
+      v.load()
+    }
     if (!v.getAttribute('src')) continue
-    if (playing && st.offsetParent) v.play().catch(() => {})
+    if (playing && visible) v.play().catch(() => {})
     else v.pause()
   }
 }
@@ -1412,7 +1450,7 @@ function fit(c) {
 }
 let ridgeTick = 0
 function updateLevels() {
-  if (++ridgeTick % 3 === 0) {
+  if (++ridgeTick % 2 === 0) {
     RIDGE.push(Float32Array.from(LV))
     if (RIDGE.length > 26) RIDGE.shift()
   }
@@ -1425,7 +1463,7 @@ function updateLevels() {
     let m = 0
     for (let k = a; k < b && k < bins; k++) if (N.freq[k] > m) m = N.freq[k]
     const v = m / 255
-    LV[i] += (v - LV[i]) * (v > LV[i] ? 0.6 : 0.18)
+    LV[i] += (v - LV[i]) * (v > LV[i] ? 0.84 : 0.33)
   }
 }
 function lvAt(f) {
@@ -1488,6 +1526,46 @@ function smooth(c, pts) {
   c.lineTo(xl, yl)
 }
 
+// Draws a lit-cell matrix (SPEC, LED). The unlit grid never changes, so it's
+// drawn once into a bitmap and copied each frame; lit cells go straight into
+// the context's own path. Building fresh Path2D objects with ~1500 shapes per
+// frame piled up garbage that WebView2 held on to for hundreds of MB.
+function matrix(c, st, w, h, cols, rows, fall, b1, b2, dim, shape) {
+  if (!st.pk || st.pk.length !== cols) { st.pk = new Float32Array(cols); st.lit = new Float32Array(cols) }
+  const key = [w, h, cols, rows, dim].join('|')
+  if (st.gridKey !== key) {
+    st.grid = st.grid || document.createElement('canvas')
+    st.grid.width = w
+    st.grid.height = h
+    const g = st.grid.getContext('2d')
+    g.fillStyle = dim
+    g.beginPath()
+    for (let k = 0; k < cols; k++) for (let ro = 0; ro < rows; ro++) shape(g, k, ro)
+    g.fill()
+    st.gridKey = key
+  }
+  c.drawImage(st.grid, 0, 0)
+  for (let k = 0; k < cols; k++) {
+    st.lit[k] = lvAt(k / (cols - 1)) * rows
+    st.pk[k] = Math.max(st.lit[k], st.pk[k] - fall)
+  }
+  // colour bands by height: rows [0, ra) low, [ra, rb) mid, [rb, rows) hot
+  const ra = Math.floor(rows * b1) + 1, rb = Math.floor(rows * b2) + 1
+  ;[[0, ra, C.v1], [ra, rb, C.v2], [rb, rows, C.v3]].forEach(([from, to, fill]) => {
+    c.beginPath()
+    for (let k = 0; k < cols; k++) for (let ro = from; ro < to && ro < st.lit[k]; ro++) shape(c, k, ro)
+    c.fillStyle = fill
+    c.fill()
+  })
+  c.beginPath()
+  for (let k = 0; k < cols; k++) {
+    const pr = Math.floor(st.pk[k])
+    if (pr > 0 && pr < rows) shape(c, k, pr)
+  }
+  c.fillStyle = C.scrInk
+  c.fill()
+}
+
 const DRAW = [
   // OSC — oscilloscope on a dotted graticule
   (c, w, h, d) => {
@@ -1504,51 +1582,21 @@ const DRAW = [
   (c, w, h, d, st) => {
     const step = 6 * d, r = 2.1 * d
     const cols = Math.floor(w / step), rows = Math.max(4, Math.floor((h - 6 * d) / step))
-    if (!st.pk || st.pk.length !== cols) st.pk = new Float32Array(cols)
     const off = (w - cols * step) / 2 + step / 2
-    const P = { dim: new Path2D(), a: new Path2D(), b: new Path2D(), c: new Path2D(), pk: new Path2D() }
-    for (let k = 0; k < cols; k++) {
-      const lit = lvAt(k / (cols - 1)) * rows
-      st.pk[k] = Math.max(lit, st.pk[k] - 0.16)
-      const x = off + k * step
-      for (let ro = 0; ro < rows; ro++) {
-        const y = h - (ro + 0.5) * step - 3 * d, fr = ro / rows
-        const p = ro < lit ? (fr > 0.78 ? P.c : fr > 0.5 ? P.b : P.a) : P.dim
-        p.moveTo(x + r, y); p.arc(x, y, r, 0, 6.2832)
-      }
-      const pr = Math.floor(st.pk[k])
-      if (pr > 0 && pr < rows) { const y = h - (pr + 0.5) * step - 3 * d; P.pk.moveTo(x + r, y); P.pk.arc(x, y, r, 0, 6.2832) }
-    }
-    c.fillStyle = hexA(C.scrDim, 0.13); c.fill(P.dim)
-    c.fillStyle = C.v1; c.fill(P.a)
-    c.fillStyle = C.v2; c.fill(P.b)
-    c.fillStyle = C.v3; c.fill(P.c)
-    c.fillStyle = C.scrInk; c.fill(P.pk)
+    const at = (k, ro) => [off + k * step, h - (ro + 0.5) * step - 3 * d]
+    const dot = (g, [x, y]) => { g.moveTo(x + r, y); g.arc(x, y, r, 0, 6.2832) }
+    matrix(c, st, w, h, cols, rows, 0.32, 0.5, 0.78, hexA(C.scrDim, 0.13), (g, k, ro) => dot(g, at(k, ro)))
   },
   // LED — segmented bar matrix
   (c, w, h, d, st) => {
     const compact = h < 60 * d
     const cols = compact ? 28 : 40, rows = compact ? 6 : Math.max(8, Math.min(16, Math.round(h / (9 * d)))), gap = (compact ? 2 : 3) * d
     const cw = (w - 16 * d) / cols, ch = (h - 12 * d) / rows
-    if (!st.pk || st.pk.length !== cols) st.pk = new Float32Array(cols)
-    const P = { dim: new Path2D(), a: new Path2D(), b: new Path2D(), c: new Path2D(), pk: new Path2D() }
-    const rr = (p, x, y) => (p.roundRect ? p.roundRect(x, y, cw - gap, ch - gap, 1.5 * d) : p.rect(x, y, cw - gap, ch - gap))
-    for (let k = 0; k < cols; k++) {
-      const lit = lvAt(k / (cols - 1)) * rows
-      st.pk[k] = Math.max(lit, st.pk[k] - 0.12)
-      const x = 8 * d + k * cw + gap / 2
-      for (let ro = 0; ro < rows; ro++) {
-        const fr = ro / rows
-        rr(ro < lit ? (fr > 0.75 ? P.c : fr > 0.45 ? P.b : P.a) : P.dim, x, h - 6 * d - (ro + 1) * ch + gap / 2)
-      }
-      const pr = Math.floor(st.pk[k])
-      if (pr > 0 && pr < rows) rr(P.pk, x, h - 6 * d - (pr + 1) * ch + gap / 2)
+    const cell = (g, k, ro) => {
+      const x = 8 * d + k * cw + gap / 2, y = h - 6 * d - (ro + 1) * ch + gap / 2
+      g.roundRect ? g.roundRect(x, y, cw - gap, ch - gap, 1.5 * d) : g.rect(x, y, cw - gap, ch - gap)
     }
-    c.fillStyle = hexA(C.scrDim, 0.12); c.fill(P.dim)
-    c.fillStyle = C.v1; c.fill(P.a)
-    c.fillStyle = C.v2; c.fill(P.b)
-    c.fillStyle = C.v3; c.fill(P.c)
-    c.fillStyle = C.scrInk; c.fill(P.pk)
+    matrix(c, st, w, h, cols, rows, 0.24, 0.45, 0.75, hexA(C.scrDim, 0.12), cell)
   },
   // PHOS — phosphor trace with afterglow, coloured by loudness
   (c, w, h, d) => {
@@ -1557,7 +1605,7 @@ const DRAW = [
     for (let s0 = 0; s0 < 220; s0 += SEG) {
       let pk = 0
       for (let i = s0; i <= Math.min(220, s0 + SEG); i++) pk = Math.max(pk, Math.abs(pts[i]))
-      const seg = pts.slice(s0, Math.min(221, s0 + SEG + 1))
+      const seg = pts.subarray(s0, Math.min(221, s0 + SEG + 1))
       const x0 = (s0 / 220) * w, sw = ((seg.length - 1) / 220) * w
       const colr = col(Math.min(1, pk * 1.6))
       c.save()
@@ -1595,13 +1643,16 @@ const DRAW = [
       c.stroke(crest)
       c.shadowBlur = 0
       // curtain rays hanging from the crest
+      // (one gradient per layer, moved into place, instead of one per ray)
       c.globalAlpha = 0.16
+      const ray = c.createLinearGradient(0, 0, 0, h * 0.5)
+      ray.addColorStop(0, k); ray.addColorStop(1, hexA(k, 0))
+      c.fillStyle = ray
       for (let i = 0; i <= M; i += 2) {
         const [x, y] = pts[i]
-        const ray = c.createLinearGradient(0, y, 0, y + h * 0.5)
-        ray.addColorStop(0, k); ray.addColorStop(1, hexA(k, 0))
-        c.fillStyle = ray
-        c.fillRect(x - d, y, 2 * d, h * 0.5)
+        c.translate(x, y)
+        c.fillRect(-d, 0, 2 * d, h * 0.5)
+        c.translate(-x, -y)
       }
       c.globalAlpha = 1
     })
@@ -1672,10 +1723,16 @@ const DRAW = [
   (c, w, h, d, st, bg, opt) => {
     const bass = lvAt(0.05)
     let cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.24
-    if (opt.ring) { cx = opt.ring.x; cy = opt.ring.y; R = opt.ring.r }
+    let maxLen = Math.min(w, h) * 0.24
+    if (opt.ring) {
+      cx = opt.ring.x; cy = opt.ring.y; R = opt.ring.r
+      // Keep ring and rays inside the stage: shorten the rays first, then the ring
+      const room = Math.min(cx, w - cx, cy, h - cy) - 6 * d
+      maxLen = Math.max(6 * d, Math.min(R * 0.55, room - R * 1.07))
+      if (R * 1.07 + maxLen > room) R = Math.max(10 * d, (room - maxLen) / 1.07)
+    }
     const Rb = R * (1 + bass * 0.07)
-    const maxLen = opt.ring ? Math.min(R * 0.55, Math.min(w, h) * 0.2) : Math.min(w, h) * 0.24
-    st.rot = ((st.rot || 0) + 0.0015 + bass * 0.008) % 6.2832
+    st.rot = ((st.rot || 0) + 0.003 + bass * 0.016) % 6.2832
     if (!opt.ring && w > h * 2.2) {
       // on a wide screen the waveform streams out of the ring like wings
       const pts = wavePoints(180)
@@ -1732,7 +1789,7 @@ const DRAW = [
     for (let i = 0; i < NB; i++) {
       const v = lvAt(0.02 + (i / (NB - 1)) * 0.86)
       const bh = Math.max(2 * d, v * base * 0.92)
-      st.pk[i] = Math.max(bh, st.pk[i] - 1.2 * d)
+      st.pk[i] = Math.max(bh, st.pk[i] - 2.4 * d)
       const x = i * slot + (slot - bw) / 2
       rr(up, x, base - bh, bw, bh, [bw / 2, bw / 2, d, d])
       rr(down, x, base + 3 * d, bw, bh * 0.4, [d, d, bw / 2, bw / 2])
@@ -1866,7 +1923,7 @@ function drawMeter() {
     })
   }
   lv.forEach((v, ch) => {
-    meterPeak[ch] = Math.max(v, meterPeak[ch] - 0.012)
+    meterPeak[ch] = Math.max(v, meterPeak[ch] - 0.024)
     const x = w / 2 + (ch ? 3 * d : -3 * d - bw)
     for (let s = 0; s < segs; s++) {
       const y = h - 5 * d - (s + 1) * sh, fr = s / segs
@@ -1905,11 +1962,16 @@ function flowLines(canvas, t, speed, amp, idle) {
   c.globalAlpha = 1
   c.shadowBlur = 0
 }
-let frameN = 0
+// 30 fps is plenty for the displays. Each frame's canvas work allocates
+// inside the engine, and at 60 fps WebView2 held hundreds of MB more.
+const FRAME_MS = 1000 / 30
+let frameN = 0, lastDraw = 0
 function loop(now) {
   requestAnimationFrame(loop)
+  if (now - lastDraw < FRAME_MS - 4) return
+  lastDraw = now
   frameN++
-  if (document.hidden || (reduced && frameN % 12)) return
+  if (document.hidden || (reduced && frameN % 6)) return
   const t = now / 1000
   updateLevels()
   if (!$('#login').classList.contains('hidden')) {
@@ -2196,6 +2258,11 @@ function bind() {
   // side panel
   $('#tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab) })
   bindRows($('#q-rows'))
+  let qFrame = 0
+  $('#q-rows').addEventListener('scroll', () => {
+    if (!qFrame) qFrame = requestAnimationFrame(() => { qFrame = 0; paintQueueWindow() })
+  }, { passive: true })
+  new ResizeObserver(() => paintQueueWindow()).observe($('#q-rows'))
   bindRows($('#s-rows'))
   bindRows($('#ar-body'))
   bindRows($('#hist-body'))

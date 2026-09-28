@@ -1,6 +1,6 @@
 [package]
 name = "yandexamp"
-version = "2.0.1"
+version = "2.0.2"
 description = "YandexAmp — Winamp-style Yandex Music player (Tauri prototype)"
 edition = "2021"
 
