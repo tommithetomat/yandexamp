@@ -7,7 +7,10 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "dist": "electron-builder --win",
-    "dist:mac": "electron-builder --mac"
+    "dist:mac": "electron-builder --mac",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "keywords": [
     "winamp",
@@ -19,6 +22,7 @@
   "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.0",
     "electron": "^43.1.1",
     "electron-builder": "^26.0.12"
   },
@@ -51,7 +55,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.png",

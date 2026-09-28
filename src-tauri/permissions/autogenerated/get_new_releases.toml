@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-new-releases"
+description = "Enables the get_new_releases command without any pre-configured scope."
+commands.allow = ["get_new_releases"]
+
+[[permission]]
+identifier = "deny-get-new-releases"
+description = "Denies the get_new_releases command without any pre-configured scope."
+commands.deny = ["get_new_releases"]

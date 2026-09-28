@@ -515,6 +515,26 @@ function bindPlayerUI() {
     window.api.window.setPin(true)
   }
 
+  // Sign out: only engines that support it (Tauri) — revokes the token and
+  // wipes it from the OS vault. Second click within 3 s confirms.
+  if (window.api.yandex.logout) {
+    const btn = $('btn-logout')
+    let armed = null
+    btn.classList.remove('hidden')
+    btn.addEventListener('click', async () => {
+      if (!armed) {
+        btn.textContent = 'OK?'
+        flashMeta('нажмите ещё раз, чтобы выйти')
+        armed = setTimeout(() => { armed = null; btn.textContent = 'OUT' }, 3000)
+        return
+      }
+      clearTimeout(armed)
+      audio.pause()
+      await window.api.yandex.logout()
+      location.reload()
+    })
+  }
+
   // Skin cycling
   $('btn-skin').addEventListener('click', () => {
     const cur = document.body.dataset.theme || 'classic'

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-like-track"
+description = "Enables the like_track command without any pre-configured scope."
+commands.allow = ["like_track"]
+
+[[permission]]
+identifier = "deny-like-track"
+description = "Denies the like_track command without any pre-configured scope."
+commands.deny = ["like_track"]
