@@ -62,7 +62,7 @@
     <div class="bezel">
       <div class="glass login-hero">
         <canvas id="login-wave" aria-hidden="true"></canvas>
-        <div class="login-mark"><span class="wordmark big">YANDEXAMP</span><span class="chip">2.0</span></div>
+        <div class="login-mark"><span class="wordmark big">YANDEXAMP</span><span class="chip ver">2.0</span></div>
         <p class="login-tag">Hi-Fi плеер для Яндекс Музыки</p>
       </div>
     </div>
@@ -91,7 +91,7 @@
 <!-- ============ PLAYER ============ -->
 <section id="player" class="screen player hidden" aria-label="Плеер">
   <header class="tbar drag">
-    <div class="brand"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" class="logo-bg"/><path d="M13.6 3.8 6.8 13.2h4.6l-1.1 7 7-9.6h-4.6z" class="logo-bolt"/></svg><span class="wordmark">YANDEXAMP</span><span class="chip">2.0</span></div>
+    <div class="brand"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" class="logo-bg"/><path d="M13.6 3.8 6.8 13.2h4.6l-1.1 7 7-9.6h-4.6z" class="logo-bolt"/></svg><span class="wordmark">YANDEXAMP</span><span class="chip ver">2.0</span></div>
     <form id="search-form" class="search" role="search">
       <svg class="ic"><use href="#i-search"/></svg>
       <label class="sr" for="search">Поиск по Яндекс Музыке</label>
@@ -257,7 +257,7 @@
 <section id="mini" class="screen mini hidden drag" aria-label="Мини-плеер">
   <div class="vinyl small" id="m-vinyl" aria-hidden="true"><span class="vinyl-dot"></span><div class="vinyl-label" id="m-label"></div></div>
   <div class="glass m-screen">
-    <div class="m-row"><span class="m-title" id="m-title">YandexAmp</span><button class="m-ly ly-toggle" aria-label="Текст песни в мини-плеере" title="Текст песни"><svg class="ic sm"><use href="#i-lyrics"/></svg></button><span class="m-time tm" id="m-time"></span></div>
+    <div class="m-row"><span class="m-title" id="m-title">YandexAmp</span><button class="m-ly ly-toggle" aria-label="Текст песни в мини-плеере" title="Текст песни"><svg class="ic sm"><use href="#i-lyrics"/></svg></button><button class="m-ly pin-mini" aria-label="Мини-плеер поверх всех окон" title="Поверх всех окон"><svg class="ic sm"><use href="#i-pin"/></svg></button><span class="m-time tm" id="m-time"></span></div>
     <span class="m-artist" id="m-artist"></span>
     <span class="m-line hidden" id="m-line"><span></span></span>
     <canvas id="m-canvas" aria-hidden="true"></canvas>
@@ -282,6 +282,7 @@
 <section id="mini-v" class="screen miniv hidden drag" aria-label="Вертикальный мини-плеер">
   <header class="mv-head">
     <div class="brand"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" class="logo-bg"/><path d="M13.6 3.8 6.8 13.2h4.6l-1.1 7 7-9.6h-4.6z" class="logo-bolt"/></svg><span class="wordmark">YANDEXAMP</span></div>
+    <button class="tbtn pin-mini" aria-label="Мини-плеер поверх всех окон" title="Поверх всех окон"><svg class="ic"><use href="#i-pin"/></svg></button>
     <button class="tbtn" data-act="full" aria-label="Развернуть плеер" title="Развернуть плеер"><svg class="ic"><use href="#i-expand"/></svg></button>
     <button class="tbtn" data-act="tray" aria-label="Свернуть в трей" title="Свернуть в трей"><svg class="ic"><use href="#i-minus"/></svg></button>
   </header>
@@ -342,6 +343,13 @@
           <button role="radio" data-mini="v"><i class="mp mp-v"><b></b><u></u></i><span>Карточка</span><small>Сцена с клипом и текстом</small></button>
         </div>
         <label class="set-row"><span><b>Поверх всех окон</b><small>Мини-плеер не прячется за другими окнами</small></span><input type="checkbox" class="switch" data-cfg="miniPin"></label>
+      </section>
+      <section class="set-sec">
+        <h3>О программе</h3>
+        <div class="about">
+          <div><b>YandexAmp <span id="ab-ver"></span></b><small id="ab-state">Проверяем обновления…</small></div>
+          <button class="key" id="ab-btn">Проверить</button>
+        </div>
       </section>
       <section class="set-sec">
         <h3>Сеть</h3>

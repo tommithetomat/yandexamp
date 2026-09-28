@@ -307,14 +307,18 @@ fn newer(latest: &str, current: &str) -> bool {
     false
 }
 
+/// Asks GitHub for the latest release. Always reports the running version,
+/// so the UI can show it even when GitHub is unreachable.
 #[tauri::command]
 async fn check_update(app: AppHandle, st: St<'_>) -> R<Value> {
-    let none = json!({ "newer": false });
+    let current = app.package_info().version.to_string();
+    let none = json!({ "newer": false, "current": current });
     let res = st
         .ym
         .http()
         .get(format!("https://api.github.com/repos/{REPO}/releases/latest"))
         .header("Accept", "application/vnd.github+json")
+        .timeout(std::time::Duration::from_secs(12))
         .send()
         .await;
     let Ok(res) = res else { return Ok(none) };
@@ -323,9 +327,9 @@ async fn check_update(app: AppHandle, st: St<'_>) -> R<Value> {
     if latest.is_empty() {
         return Ok(none);
     }
-    let current = app.package_info().version.to_string();
     Ok(json!({
         "newer": newer(&latest, &current),
+        "current": current,
         "latest": latest,
         "url": v["html_url"].as_str().unwrap_or(&format!("https://github.com/{REPO}/releases")),
     }))

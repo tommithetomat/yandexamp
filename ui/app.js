@@ -194,6 +194,7 @@ function applyCfg() {
   for (const inp of $$('[data-cfg]')) inp.checked = !!S.cfg[inp.dataset.cfg]
   for (const b of $$('[data-mini]')) b.setAttribute('aria-checked', String(S.cfg.mini === b.dataset.mini))
   for (const b of $$('.ly-toggle')) b.setAttribute('aria-pressed', String(S.cfg.miniLyrics))
+  for (const b of $$('.pin-mini')) b.setAttribute('aria-pressed', String(S.cfg.miniPin))
 }
 function setCfg(k, v) {
   S.cfg[k] = v
@@ -201,7 +202,8 @@ function setCfg(k, v) {
   applyCfg()
   if (k === 'coverAccent') applyAccent()
   if (k === 'video') stageTrack(S.queue[S.cur])
-  if (k === 'miniPin' && S.mini) api.window.setPin(v || S.pin)
+  // The mini player has its own pin, independent of the full player's
+  if (k === 'miniPin' && S.mini) api.window.setPin(v)
 }
 function ensurePanel() {
   if (!S.cfg.panel) setCfg('panel', true)
@@ -263,6 +265,7 @@ async function enterPlayer() {
     entered = true
     if (S.pin) api.window.setPin(true)
     checkUpdate()
+    setInterval(() => { if (!update) checkUpdate() }, 6 * 3600 * 1000)
   }
   renderAll()
   loadLibrary()
@@ -1974,7 +1977,7 @@ async function setMini(on) {
   const mode = on ? (S.cfg.mini === 'v' ? 'mini-v' : 'mini') : 'player'
   show(mode)
   await layout(mode)
-  api.window.setPin(on ? S.cfg.miniPin || S.pin : S.pin)
+  api.window.setPin(on ? S.cfg.miniPin : S.pin)
   if (!on) requestAnimationFrame(buildSeekBars)
   syncVideo()
 }
@@ -2004,13 +2007,38 @@ function initMediaKeys() {
     else if (cmd === 'prev') prev()
   })
 }
-async function checkUpdate() {
-  const r = await api.app.checkUpdate()
-  if (!r || !r.newer) return
+// New release on GitHub: NEW in the titlebar, a toast once, and the
+// "About" block in settings. Checked at start and every 6 hours.
+let update = null, updateTold = false
+async function checkUpdate(manual = false) {
+  const st = $('#ab-state'), btn = $('#ab-btn')
+  if (manual) { st.textContent = 'Проверяем…'; st.classList.remove('new') }
+  const r = (await api.app.checkUpdate()) || {}
+  if (r.current) {
+    $('#ab-ver').textContent = r.current
+    for (const c of $$('.chip.ver')) c.textContent = r.current.split('.').slice(0, 2).join('.')
+  }
+  if (!r.newer) {
+    st.textContent = r.latest ? 'Установлена последняя версия' : 'Не удалось связаться с GitHub'
+    btn.textContent = 'Проверить'
+    btn.onclick = () => checkUpdate(true)
+    return
+  }
+  update = r
+  const open = () => api.app.openReleases(r.url)
   const b = $('#btn-update')
   b.classList.remove('hidden')
   b.title = `Доступна версия ${r.latest} — открыть страницу загрузки`
-  b.onclick = () => api.app.openReleases(r.url)
+  b.textContent = `NEW ${r.latest}`
+  b.onclick = open
+  st.textContent = `Доступна версия ${r.latest}`
+  st.classList.add('new')
+  btn.textContent = 'Скачать'
+  btn.onclick = open
+  if (!updateTold) {
+    updateTold = true
+    toast(`Доступна версия ${r.latest} — нажмите NEW вверху`)
+  }
 }
 let logoutArmed = null
 async function logout() {
@@ -2074,6 +2102,7 @@ function bind() {
     if (m) setCfg('mini', m.dataset.mini)
   })
   for (const b of $$('.ly-toggle')) b.addEventListener('click', () => setCfg('miniLyrics', !S.cfg.miniLyrics))
+  for (const b of $$('.pin-mini')) b.addEventListener('click', () => setCfg('miniPin', !S.cfg.miniPin))
   $('#settings').addEventListener('change', (e) => { const k = e.target.dataset.cfg; if (k) setCfg(k, e.target.checked) })
   $('#btn-pin').addEventListener('click', () => {
     S.pin = !S.pin

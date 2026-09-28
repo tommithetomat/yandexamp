@@ -109,8 +109,9 @@ input, select { font: inherit; }
 .tbtn:hover { background: var(--well); }
 .tbtn[aria-pressed="true"] { background: var(--well); color: var(--led); }
 #btn-logout.armed { background: var(--led); color: var(--body); }
-#btn-update { aspect-ratio: auto; width: auto; padding: 0 8px; font-family: 'Doto', monospace; font-weight: 800; color: var(--led); animation: blink 1.6s ease-in-out infinite; }
-@keyframes blink { 50% { opacity: .45; } }
+#btn-update { aspect-ratio: auto; width: auto; height: 28px; padding: 0 10px; border-radius: 14px; font-family: 'Doto', monospace; font-weight: 800; font-size: 13px; letter-spacing: .04em; background: var(--led); color: var(--body); animation: glow 2.2s ease-in-out infinite; }
+#btn-update:hover { background: var(--led); filter: brightness(1.1); }
+@keyframes glow { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--led) 25%, transparent); } }
 .search { flex: 1; max-width: 440px; height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 12px; border-radius: 10px; background: var(--well); color: var(--ink2); }
 .search:focus-within { box-shadow: 0 0 0 2px var(--led); }
 .search input { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; color: var(--ink); font-size: 13px; }
@@ -534,6 +535,12 @@ kbd { font-size: 11px; padding: 2px 6px; border-radius: 5px; border: 1px solid v
 .viz-card span { display: flex; align-items: baseline; gap: 8px; padding: 0 3px; font-size: 12.5px; font-weight: 500; }
 .viz-card b { font-family: 'Doto', monospace; font-weight: 800; font-size: 12px; color: var(--ink2); }
 .viz-card[aria-checked="true"] b { color: var(--led); }
+.about { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.about > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.about b { font-size: 13.5px; font-weight: 600; }
+.about small { font-size: 12px; color: var(--ink2); }
+.about small.new { color: var(--led); font-weight: 600; }
+.about .key { flex: none; height: 34px; padding: 0 14px; font-weight: 600; }
 .link { color: var(--led); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
