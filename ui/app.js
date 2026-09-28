@@ -783,7 +783,11 @@ function recover() {
   if (!t || !src) return
   if (recoverTries >= 4) {
     setState('stop')
-    return toast('Нет связи с Яндексом — проверьте сеть и нажмите Play')
+    const e = audio.error
+    // code 2 = network; anything else means the stream reached us but couldn't play
+    return toast(!e || e.code === 2
+      ? 'Нет связи с Яндексом — проверьте сеть и нажмите Play'
+      : `Не удалось воспроизвести поток (код ${e.code}${e.message ? ': ' + e.message : ''})`)
   }
   recoverTries++
   const pos = audio.currentTime || 0

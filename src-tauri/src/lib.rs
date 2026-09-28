@@ -510,6 +510,13 @@ pub fn run() {
         ])
         .setup(|app| {
             build_tray(app)?;
+            if stream::wants_local() {
+                let state = app.state::<AppState>();
+                let (ym, cache) = (state.ym.clone(), state.cache.clone());
+                tauri::async_runtime::spawn(async move {
+                    let _ = stream::start_local(ym, cache).await;
+                });
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

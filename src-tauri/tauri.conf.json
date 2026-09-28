@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "YandexAmp",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "identifier": "ru.yandexamp.player",
   "build": {
     "frontendDist": "../ui"
@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://avatars.yandex.net https://*.yandex.net; media-src 'self' http://yamp.localhost yamp: https://*.strm.yandex.ru https://*.strm.yandex.net; connect-src 'self' ipc: http://ipc.localhost; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://avatars.yandex.net https://*.yandex.net; media-src 'self' http://yamp.localhost yamp: http://127.0.0.1:* https://*.strm.yandex.ru https://*.strm.yandex.net; connect-src 'self' ipc: http://ipc.localhost; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
     }
   },
   "bundle": {

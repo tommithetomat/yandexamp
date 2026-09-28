@@ -15,7 +15,7 @@ use crate::yandex::{safe_id, Yandex};
 use crate::AppState;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::http::{header, Method, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager, Runtime, UriSchemeResponder};
@@ -34,12 +34,125 @@ const MAX_FAILS: u32 = 10;
 /// How long a range request waits for bytes before giving up.
 const WAIT: Duration = Duration::from_secs(40);
 
-/// The scheme is exposed differently per platform (WebView2 needs http://).
+/// Every stream is MP3 (see Yandex::resolve_stream). Said explicitly: macOS's
+/// media stack trusts the declared type, not the bytes, and the CDN's own
+/// header isn't guaranteed to be an audio type.
+const MP3: &str = "audio/mpeg";
+
+/// Base URL of the loopback HTTP server, when it runs (see `start_local`).
+static LOCAL: OnceLock<String> = OnceLock::new();
+
+/// Where the `<audio>` element loads a track from. The `.mp3` suffix helps
+/// media stacks that guess the format from the address.
 pub fn url_for(track_id: &str) -> String {
-    if cfg!(any(windows, target_os = "android")) {
-        format!("http://yamp.localhost/stream/{track_id}")
+    if let Some(base) = LOCAL.get() {
+        format!("{base}/stream/{track_id}.mp3")
+    } else if cfg!(any(windows, target_os = "android")) {
+        // The scheme is exposed differently per platform (WebView2 needs http://)
+        format!("http://yamp.localhost/stream/{track_id}.mp3")
     } else {
-        format!("yamp://localhost/stream/{track_id}")
+        format!("yamp://localhost/stream/{track_id}.mp3")
+    }
+}
+
+/// Whether the audio should go through the loopback server: always on macOS,
+/// where WKWebView's media player can't reliably load audio from a custom
+/// scheme; elsewhere only on request (YAMP_LOCAL_HTTP=1, for testing).
+pub fn wants_local() -> bool {
+    cfg!(target_os = "macos") || std::env::var_os("YAMP_LOCAL_HTTP").is_some()
+}
+
+/// Serves the same streams over plain HTTP on 127.0.0.1, on a random port and
+/// under a random per-launch secret path, so other local programs can't use
+/// it to pull tracks through this account.
+pub async fn start_local(ym: Arc<Yandex>, cache: Arc<Cache>) -> std::io::Result<()> {
+    use aes_gcm::aead::{KeyInit, OsRng};
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
+    let port = listener.local_addr()?.port();
+    let secret: String = aes_gcm::Aes256Gcm::generate_key(OsRng).iter().map(|b| format!("{b:02x}")).collect();
+    let _ = LOCAL.set(format!("http://127.0.0.1:{port}/{secret}"));
+    let prefix = Arc::new(format!("/{secret}/"));
+    loop {
+        let Ok((sock, _)) = listener.accept().await else { continue };
+        let (ym, cache, prefix) = (ym.clone(), cache.clone(), prefix.clone());
+        tauri::async_runtime::spawn(async move {
+            let _ = connection(sock, &ym, &cache, &prefix).await;
+        });
+    }
+}
+
+/// One keep-alive HTTP/1.1 connection: GET/HEAD/OPTIONS without bodies.
+async fn connection(mut sock: tokio::net::TcpStream, ym: &Arc<Yandex>, cache: &Cache, prefix: &str) -> std::io::Result<()> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut buf: Vec<u8> = Vec::with_capacity(4096);
+    loop {
+        // Read one request head
+        let end = loop {
+            if let Some(i) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                break i + 4;
+            }
+            if buf.len() > 16 * 1024 {
+                return Ok(());
+            }
+            let mut chunk = [0u8; 4096];
+            let n = match tokio::time::timeout(Duration::from_secs(60), sock.read(&mut chunk)).await {
+                Ok(Ok(n)) if n > 0 => n,
+                _ => return Ok(()),
+            };
+            buf.extend_from_slice(&chunk[..n]);
+        };
+        let head = String::from_utf8_lossy(&buf[..end]).into_owned();
+        buf.drain(..end);
+
+        let mut lines = head.split("\r\n");
+        let mut first = lines.next().unwrap_or("").split(' ');
+        let (method, target) = (first.next().unwrap_or(""), first.next().unwrap_or(""));
+        let mut range = None;
+        let mut close = false;
+        for l in lines {
+            let Some((k, v)) = l.split_once(':') else { continue };
+            let (k, v) = (k.trim(), v.trim());
+            if k.eq_ignore_ascii_case("range") {
+                range = Some(v.to_string());
+            } else if k.eq_ignore_ascii_case("connection") && v.eq_ignore_ascii_case("close") {
+                close = true;
+            }
+        }
+
+        let res = match target.strip_prefix(prefix) {
+            Some(rest) if matches!(method, "GET" | "HEAD" | "OPTIONS") => {
+                let path = rest.split('?').next().unwrap_or("");
+                let mut req = Request::builder().method(method).uri(format!("http://127.0.0.1/{path}"));
+                if let Some(r) = &range {
+                    req = req.header(header::RANGE, r.as_str());
+                }
+                match req.body(Vec::new()) {
+                    Ok(req) => serve(ym, cache, &req).await,
+                    Err(_) => empty(StatusCode::BAD_REQUEST),
+                }
+            }
+            _ => empty(StatusCode::NOT_FOUND),
+        };
+
+        let status = res.status();
+        let mut out = format!("HTTP/1.1 {} {}\r\n", status.as_u16(), status.canonical_reason().unwrap_or(""));
+        for (k, v) in res.headers() {
+            if let Ok(v) = v.to_str() {
+                out.push_str(&format!("{k}: {v}\r\n"));
+            }
+        }
+        if !res.headers().contains_key(header::CONTENT_LENGTH) {
+            out.push_str(&format!("content-length: {}\r\n", res.body().len()));
+        }
+        out.push_str(if close { "connection: close\r\n\r\n" } else { "connection: keep-alive\r\n\r\n" });
+        sock.write_all(out.as_bytes()).await?;
+        if method != "HEAD" {
+            sock.write_all(res.body()).await?;
+        }
+        sock.flush().await?;
+        if close {
+            return Ok(());
+        }
     }
 }
 
@@ -250,6 +363,7 @@ async fn serve(ym: &Arc<Yandex>, cache: &Cache, req: &Request<Vec<u8>>) -> Respo
     }
     let Some(id) = req.uri().path().strip_prefix("/stream/") else { return empty(StatusCode::NOT_FOUND) };
     let id = id.trim_end_matches('/');
+    let id = id.strip_suffix(".mp3").unwrap_or(id);
     if safe_id(id).is_err() {
         return empty(StatusCode::BAD_REQUEST);
     }
@@ -264,10 +378,10 @@ async fn serve(ym: &Arc<Yandex>, cache: &Cache, req: &Request<Vec<u8>>) -> Respo
             let d = buf.data.lock().unwrap();
             let have = d.bytes.len() as u64;
             let finished = d.complete() || d.failed || buf.stop.load(Relaxed);
-            let ctype = d.ctype.clone().unwrap_or_else(|| "audio/mpeg".into());
+            let ctype = MP3;
             match (range, d.total) {
                 (None, Some(_)) if finished && have > 0 => {
-                    return audio(StatusCode::OK, &ctype, d.bytes.len()).body(d.bytes.clone()).unwrap();
+                    return audio(StatusCode::OK, ctype, d.bytes.len()).body(d.bytes.clone()).unwrap();
                 }
                 (Some((start, end)), Some(total)) => {
                     if start >= total {
@@ -280,7 +394,7 @@ async fn serve(ym: &Arc<Yandex>, cache: &Cache, req: &Request<Vec<u8>>) -> Respo
                     if have > want || have >= start + MIN_SERVE || (finished && have > start) {
                         let last = want.min(have - 1);
                         let body = d.bytes[start as usize..=last as usize].to_vec();
-                        return audio(StatusCode::PARTIAL_CONTENT, &ctype, body.len())
+                        return audio(StatusCode::PARTIAL_CONTENT, ctype, body.len())
                             .header(header::CONTENT_RANGE, format!("bytes {start}-{last}/{total}"))
                             .body(body)
                             .unwrap();
@@ -326,13 +440,12 @@ async fn direct(ym: &Yandex, id: &str, start: u64, end: Option<u64>) -> Response
         if status != 206 {
             continue;
         }
-        let ctype = res.headers().get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).unwrap_or("audio/mpeg").to_string();
         let Some(cr) = res.headers().get(header::CONTENT_RANGE).and_then(|v| v.to_str().ok()).map(String::from) else {
             continue;
         };
         let Ok(bytes) = res.bytes().await else { continue };
         let body = bytes.to_vec();
-        return audio(StatusCode::PARTIAL_CONTENT, &ctype, body.len())
+        return audio(StatusCode::PARTIAL_CONTENT, MP3, body.len())
             .header(header::CONTENT_RANGE, cr)
             .body(body)
             .unwrap();
@@ -356,8 +469,9 @@ mod tests {
     #[test]
     fn stream_urls_never_carry_secrets() {
         let u = url_for("12345");
-        assert!(u.ends_with("/stream/12345"));
+        assert!(u.ends_with("/stream/12345.mp3"));
         assert!(!u.contains("get-mp3"));
     }
 }
+
 
